@@ -1,0 +1,44 @@
+replicaCount: 3
+
+image:
+  pullPolicy: IfNotPresent
+
+ingress:
+  hosts:
+    - host: reviews.freshcart.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: reviews-tls-prod
+      hosts: [reviews.freshcart.com]
+
+resources:
+  requests: { cpu: '250m', memory: '512Mi' }
+  limits:   { cpu: '1000m', memory: '1Gi' }
+
+autoscaling:
+  minReplicas: 3
+  maxReplicas: 15
+  targetCPUUtilizationPercentage: 60
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+keyVault:
+  enabled: true
+  name: freshcart-prod-kv
+  tenantId: ''
+
+serviceMonitor:
+  enabled: true
+
+# Force at-most-one-pod-per-node on prod for resilience.
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - topologyKey: kubernetes.io/hostname
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: reviews

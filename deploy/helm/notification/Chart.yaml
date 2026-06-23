@@ -1,0 +1,30 @@
+apiVersion: v2
+name: notification
+description: FreshCart Notification service: RabbitMQ fan-out and a SignalR notification hub.
+type: application
+
+# Bumped on every chart change (template, defaults). NOT the app version.
+version: 0.1.0
+
+appVersion: '0.1.0'
+
+home: https://github.com/amasen02/FreshCart
+sources:
+  - https://github.com/amasen02/FreshCart
+
+maintainers:
+  - name: Ama Senevirathne
+    email: amabandarasp@gmail.com
+
+keywords:
+  - freshcart
+  - notification
+  - signalr
+  - rabbitmq
+  - realtime
+  - dotnet10
+  - aks
+
+annotations:
+  category: Application
+  licenses: MIT

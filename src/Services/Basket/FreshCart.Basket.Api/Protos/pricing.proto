@@ -1,0 +1,51 @@
+syntax = "proto3";
+option csharp_namespace = "FreshCart.Pricing.Grpc.Protos";
+package pricing;
+
+service PricingService {
+  rpc PriceBasket (PriceBasketRequest) returns (PriceBasketResponse);
+  rpc ValidateCoupon (ValidateCouponRequest) returns (ValidateCouponResponse);
+}
+
+message PriceBasketRequest {
+  string customer_id = 1;
+  string coupon_code = 2;
+  string currency_code = 3;
+  repeated PriceBasketLine lines = 4;
+}
+
+message PriceBasketLine {
+  string product_id = 1;
+  string product_sku = 2;
+  string unit_price = 3;   // decimal serialized as invariant string to avoid double rounding
+  int32 quantity = 4;
+}
+
+message PriceBasketResponse {
+  repeated PricedLine lines = 1;
+  string subtotal = 2;
+  string discount_total = 3;
+  string tax_total = 4;
+  string grand_total = 5;
+  string applied_coupon = 6;
+}
+
+message PricedLine {
+  string product_id = 1;
+  string unit_price = 2;
+  string discounted_unit_price = 3;
+  string line_total = 4;
+}
+
+message ValidateCouponRequest {
+  string coupon_code = 1;
+  string customer_id = 2;
+  string order_subtotal = 3;
+}
+
+message ValidateCouponResponse {
+  bool is_valid = 1;
+  string error_message = 2;
+  string discount_value = 3;
+  string discount_type = 4; // "Percentage" or "FixedAmount"
+}

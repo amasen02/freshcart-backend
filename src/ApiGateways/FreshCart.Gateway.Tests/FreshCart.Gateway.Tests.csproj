@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>FreshCart.Gateway.Tests</RootNamespace>
+    <AssemblyName>FreshCart.Gateway.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="coverlet.collector" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FreshCart.Gateway.Yarp\FreshCart.Gateway.Yarp.csproj" />
+  </ItemGroup>
+
+  <!-- The route-map test reads the gateway's real ReverseProxy configuration so the published
+       contract in 00-common.md is locked. The file is copied to a dedicated subfolder to avoid
+       colliding with the test project's own configuration. -->
+  <ItemGroup>
+    <Content Include="..\FreshCart.Gateway.Yarp\appsettings.json" Link="GatewayConfiguration\appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>

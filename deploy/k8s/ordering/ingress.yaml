@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ordering
+  namespace: freshcart
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: '8m'
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '60'
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [ordering.freshcart.local]
+      secretName: ordering-tls
+  rules:
+    - host: ordering.freshcart.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ordering
+                port: { number: 80 }

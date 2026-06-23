@@ -1,0 +1,84 @@
+@use 'variables' as brand;
+
+// Product imagery comes from external sources with mixed aspect ratios; a fixed crop keeps card grids aligned.
+.fc-product-card-img {
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+// Bootstrap's default focus ring is too subtle against the green brand palette; WCAG 2.4.7 needs a visible indicator.
+:focus-visible {
+  outline: 2px solid brand.$primary;
+  outline-offset: 2px;
+}
+
+// Toasts must stay above NgbModal dialogs and backdrops, which Bootstrap layers at 1055.
+.fc-toast-host {
+  z-index: 1090;
+}
+
+// Chat bubbles read better capped below full width so sender alternation stays legible.
+.fc-chat-bubble {
+  max-width: 75%;
+}
+
+// The floating support panel sits above page content but below toasts and modal dialogs.
+.fc-support-panel {
+  z-index: 1040;
+  width: 22.5rem;
+  max-height: 70vh;
+}
+
+// The notification dropdown needs a readable fixed width that still collapses on small screens.
+.fc-notification-menu {
+  min-width: 22rem;
+  max-width: 90vw;
+}
+
+// Small status indicators (read/unread, connection) have no Bootstrap utility for sub-rem sizing.
+.fc-status-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+}
+
+.fc-unread-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+}
+
+// Chart.js needs a non-aspect-ratio fixed height to render at a stable size; no Bootstrap utility sets a rem height.
+.fc-chart-canvas {
+  height: 16rem;
+}
+
+// Order-status step markers are fixed-size circles; Bootstrap has no utility for a 2.25rem square.
+.fc-timeline-step {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+// Basket line-item thumbnails take a fixed width the responsive image grid does not provide.
+.fc-basket-thumb {
+  width: 3.5rem;
+}
+
+// Quantity steppers stay compact; Bootstrap input-group has no width cap utility.
+.fc-qty-stepper {
+  max-width: 8rem;
+}
+
+// The product-detail stepper sits beside a wider add-to-basket button and reads better at a slightly larger cap.
+.fc-detail-qty-stepper {
+  max-width: 9rem;
+}
+
+// Rating-distribution labels align in a fixed-width column so the progress bars start at the same offset.
+.fc-rating-bar-label {
+  width: 2.5rem;
+}
+
+// The order-reference cell truncates long identifiers, which requires an explicit max width.
+.fc-order-ref-cell {
+  max-width: 12rem;
+}
+

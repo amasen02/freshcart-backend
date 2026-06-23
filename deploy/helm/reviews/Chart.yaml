@@ -1,0 +1,29 @@
+apiVersion: v2
+name: reviews
+description: FreshCart Reviews service: vertical-slice product reviews on MongoDB.
+type: application
+
+# Bumped on every chart change (template, defaults). NOT the app version.
+version: 0.1.0
+
+appVersion: '0.1.0'
+
+home: https://github.com/amasen02/FreshCart
+sources:
+  - https://github.com/amasen02/FreshCart
+
+maintainers:
+  - name: Ama Senevirathne
+    email: amabandarasp@gmail.com
+
+keywords:
+  - freshcart
+  - reviews
+  - mongodb
+  - moderation
+  - dotnet10
+  - aks
+
+annotations:
+  category: Application
+  licenses: MIT

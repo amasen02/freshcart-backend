@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>FreshCart.CustomerSupport.Api</RootNamespace>
+    <AssemblyName>FreshCart.CustomerSupport.Api</AssemblyName>
+    <UserSecretsId>freshcart-customersupport-api</UserSecretsId>
+    <Description>FreshCart CustomerSupport host. Live agent chat over SignalR with a Redis-backed round-robin assignment queue; sessions and transcripts persisted in MongoDB.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AspNetCore.HealthChecks.MongoDb" />
+    <PackageReference Include="AspNetCore.HealthChecks.Redis" />
+    <PackageReference Include="AspNetCore.HealthChecks.UI.Client" />
+    <PackageReference Include="Carter" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" />
+    <PackageReference Include="MongoDB.Driver" />
+    <PackageReference Include="StackExchange.Redis" />
+    <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="Serilog.Enrichers.Environment" />
+    <PackageReference Include="Serilog.Enrichers.Process" />
+    <PackageReference Include="Serilog.Enrichers.Thread" />
+    <PackageReference Include="Serilog.Sinks.Console" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\FreshCart.BuildingBlocks\FreshCart.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\FreshCart.ServiceDefaults\FreshCart.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+</Project>

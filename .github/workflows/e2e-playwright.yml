@@ -1,0 +1,83 @@
+# ---------------------------------------------------------------------------
+# Playwright end-to-end — runs the customer happy-path against the local
+# Aspire stack on PR, against staging on a nightly cron.
+# ---------------------------------------------------------------------------
+name: e2e-playwright
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'clients/freshcart-customer/**'
+      - 'src/Services/**'
+      - 'src/ApiGateways/**'
+      - 'tests/e2e/**'
+      - '.github/workflows/e2e-playwright.yml'
+  schedule:
+    - cron: '0 3 * * *'         # nightly 03:00 UTC against staging
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Environment to target'
+        required: true
+        default: 'local'
+        type: choice
+        options: [local, dev, staging]
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: Playwright (${{ matrix.project }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chromium, firefox, webkit]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: tests/e2e/package-lock.json
+
+      - name: Install Playwright + dependencies
+        working-directory: tests/e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps ${{ matrix.project }}
+
+      - name: Resolve target URL
+        id: target
+        run: |
+          if [ "${{ github.event.inputs.target }}" = "staging" ] || [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "url=https://www.staging.freshcart.local" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.inputs.target }}" = "dev" ]; then
+            echo "url=https://www.dev.freshcart.local" >> "$GITHUB_OUTPUT"
+          else
+            echo "url=http://localhost:4200" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run tests
+        working-directory: tests/e2e
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ steps.target.outputs.url }}
+        run: npx playwright test --project=${{ matrix.project }}
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.project }}
+          path: tests/e2e/playwright-report
+          retention-days: 14

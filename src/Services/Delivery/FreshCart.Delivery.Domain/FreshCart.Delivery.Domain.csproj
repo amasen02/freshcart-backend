@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>FreshCart.Delivery.Domain</RootNamespace>
+    <AssemblyName>FreshCart.Delivery.Domain</AssemblyName>
+    <Description>Delivery domain core: deliveries, slots, zones, drivers and the scheduling policy. Pure hexagon centre with no persistence, transport or messaging dependencies.</Description>
+    <!-- CA1724: the aggregate is named Delivery by the ubiquitous language; the collision with the FreshCart.Delivery namespace is accepted. -->
+    <NoWarn>$(NoWarn);CA1724</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\FreshCart.BuildingBlocks\FreshCart.BuildingBlocks.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,77 @@
+# ---------------------------------------------------------------------------
+# container-template.yaml
+#
+# Build a Docker image, scan it with Trivy, sign it with Cosign and push it
+# to Azure Container Registry via the build pipeline. Image tag is the build
+# id; `latest` is moved when the source branch is main.
+# ---------------------------------------------------------------------------
+
+parameters:
+  - name: serviceName
+    type: string
+  - name: dockerfilePath
+    type: string
+  - name: buildContext
+    type: string
+    default: '.'
+  - name: containerRegistry
+    type: string                       # Azure DevOps service connection
+  - name: imageRepository
+    type: string                       # ACR repo name (e.g. freshcart/identity)
+  - name: failOnSeverity
+    type: string
+    default: 'HIGH,CRITICAL'
+
+steps:
+  - task: Docker@2
+    displayName: 'Login to ACR'
+    inputs:
+      command: 'login'
+      containerRegistry: '${{ parameters.containerRegistry }}'
+
+  - task: Docker@2
+    displayName: 'Build image'
+    inputs:
+      command: 'build'
+      Dockerfile: '${{ parameters.dockerfilePath }}'
+      buildContext: '${{ parameters.buildContext }}'
+      repository: '${{ parameters.imageRepository }}'
+      tags: |
+        $(Build.BuildId)
+        $(Build.SourceVersion)
+
+  - task: AquaSecurityTrivy@1
+    displayName: 'Scan image with Trivy'
+    inputs:
+      image: '${{ parameters.imageRepository }}:$(Build.BuildId)'
+      severities: '${{ parameters.failOnSeverity }}'
+      exitCode: '1'
+      ignoreUnfixed: true
+
+  - script: |
+      cosign sign --yes --key env://COSIGN_PRIVATE_KEY \
+        $(echo "${{ parameters.containerRegistry }}" | sed 's/[^a-zA-Z0-9-]/-/g').azurecr.io/${{ parameters.imageRepository }}:$(Build.BuildId)
+    displayName: 'Sign image with Cosign'
+    env:
+      COSIGN_PRIVATE_KEY: $(CosignPrivateKey)
+      COSIGN_PASSWORD: $(CosignPassword)
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+
+  - task: Docker@2
+    displayName: 'Push image'
+    inputs:
+      command: 'push'
+      containerRegistry: '${{ parameters.containerRegistry }}'
+      repository: '${{ parameters.imageRepository }}'
+      tags: |
+        $(Build.BuildId)
+        $(Build.SourceVersion)
+
+  - task: Docker@2
+    displayName: 'Tag and push :latest (main only)'
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    inputs:
+      command: 'push'
+      containerRegistry: '${{ parameters.containerRegistry }}'
+      repository: '${{ parameters.imageRepository }}'
+      tags: 'latest'

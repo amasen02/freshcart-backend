@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Coverage configuration shared by every .NET test project. Pipelines pass this file via
+  `dotnet test --settings tests/coverlet.runsettings`.
+
+  Exclusions: generated EF Core migrations, hosting bootstrap (Program.cs) and pure-DTO files
+  (per-suffix). Branch coverage is enabled in addition to line coverage because branch is what
+  exposes missed guard clauses.
+-->
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat code coverage">
+        <Configuration>
+          <Format>opencover,cobertura</Format>
+          <Exclude>[*]*.Migrations.*,[*]*Program,[*]*GlobalUsings*</Exclude>
+          <ExcludeByAttribute>Obsolete,GeneratedCodeAttribute,CompilerGeneratedAttribute,ExcludeFromCodeCoverageAttribute</ExcludeByAttribute>
+          <ExcludeByFile>**/Migrations/*.cs,**/Program.cs,**/GlobalUsing*.cs,**/launchSettings.json</ExcludeByFile>
+          <IncludeTestAssembly>false</IncludeTestAssembly>
+          <SingleHit>false</SingleHit>
+          <UseSourceLink>true</UseSourceLink>
+          <SkipAutoProps>true</SkipAutoProps>
+          <DeterministicReport>true</DeterministicReport>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

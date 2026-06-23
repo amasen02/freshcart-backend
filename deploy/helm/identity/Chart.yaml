@@ -1,0 +1,29 @@
+apiVersion: v2
+name: identity
+description: FreshCart Identity service — ASP.NET Identity with cookie + JWT dual authentication.
+type: application
+
+# Bumped on every chart change (template, defaults). NOT the app version.
+version: 0.1.0
+
+# Identity service image tag default; overridable per environment.
+appVersion: '0.1.0'
+
+home: https://github.com/amasen02/FreshCart
+sources:
+  - https://github.com/amasen02/FreshCart
+
+maintainers:
+  - name: Ama Senevirathne
+    email: amabandarasp@gmail.com
+
+keywords:
+  - freshcart
+  - identity
+  - aspnet-identity
+  - dotnet10
+  - aks
+
+annotations:
+  category: Security
+  licenses: MIT

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pricing-config
+  namespace: freshcart
+data:
+  ASPNETCORE_ENVIRONMENT: 'Production'
+  ASPNETCORE_HTTP_PORTS: '8080'
+  OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector.observability.svc.cluster.local:4317'
+  OTEL_SERVICE_NAME: 'freshcart-pricing'
+  Cors__AllowedOrigins__0: 'https://www.freshcart.local'
+  Jwt__Issuer: 'https://identity.freshcart.local'
+  Jwt__Audience: 'https://freshcart.local'
+  # SQLite data source is plain config on the writable /tmp emptyDir, not a secret.
+  ConnectionStrings__pricingdb: 'Data Source=/tmp/pricing.db'

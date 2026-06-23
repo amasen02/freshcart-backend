@@ -1,0 +1,16 @@
+# Default owner for everything
+* @amasen02
+
+# Architecture, ADRs and conventions require sign-off from the architect
+/docs/adr/                @amasen02
+/docs/threat-models/      @amasen02
+/Directory.Build.props    @amasen02
+/Directory.Packages.props @amasen02
+
+# Pipelines and infrastructure
+/azure-pipelines/         @amasen02
+/infra/                   @amasen02
+/deploy/                  @amasen02
+
+# Building blocks change rules every service — extra care
+/src/BuildingBlocks/      @amasen02

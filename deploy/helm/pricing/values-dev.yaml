@@ -1,0 +1,30 @@
+replicaCount: 1
+
+image:
+  pullPolicy: Always
+
+ingress:
+  hosts:
+    - host: pricing.dev.freshcart.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: pricing-tls-dev
+      hosts: [pricing.dev.freshcart.local]
+
+resources:
+  requests: { cpu: '50m', memory: '128Mi' }
+  limits:   { cpu: '300m', memory: '384Mi' }
+
+autoscaling:
+  enabled: false
+
+podDisruptionBudget:
+  enabled: false
+
+config:
+  ASPNETCORE_ENVIRONMENT: Development
+
+serviceMonitor:
+  enabled: true

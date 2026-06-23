@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>FreshCart.Payment.Infrastructure</RootNamespace>
+    <AssemblyName>FreshCart.Payment.Infrastructure</AssemblyName>
+    <Description>Payment infrastructure layer. MongoDB event store with optimistic concurrency, Dapper SQL Server read model, and the simulated card provider adapter.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="MongoDB.Driver" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FreshCart.Payment.Application\FreshCart.Payment.Application.csproj" />
+  </ItemGroup>
+
+</Project>

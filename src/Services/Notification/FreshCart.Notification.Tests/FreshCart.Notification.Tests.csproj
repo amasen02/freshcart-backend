@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>FreshCart.Notification.Tests</RootNamespace>
+    <AssemblyName>FreshCart.Notification.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- NU1902/NU1903: MongoDB.Driver transitives (SharpCompress, Snappier) are pinned repo-wide in
+         Directory.Packages.props (owned by the infra agent). Keep them visible as warnings rather
+         than failing this project's build. -->
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1902;NU1903</WarningsNotAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="coverlet.collector" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FreshCart.Notification.Api\FreshCart.Notification.Api.csproj" />
+  </ItemGroup>
+
+</Project>

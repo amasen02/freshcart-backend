@@ -1,0 +1,95 @@
+<section class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-12 col-md-8 col-lg-5">
+      <div class="card shadow-sm">
+        <div class="card-body p-4">
+          <h1 class="h3 mb-4">Sign in</h1>
+
+          @if (showMultiFactorCode()) {
+            <ngb-alert type="info" [dismissible]="false">
+              Enter the six-digit code from your authenticator app to finish signing in.
+            </ngb-alert>
+          } @else if (authStore.error(); as signInError) {
+            <ngb-alert type="danger" [dismissible]="true" (closed)="authStore.clearError()">
+              {{ signInError.detail }}
+            </ngb-alert>
+          }
+
+          <form [formGroup]="signInForm" (ngSubmit)="submitSignIn()" novalidate>
+            <div class="form-floating mb-3">
+              <input
+                type="email"
+                class="form-control"
+                id="sign-in-email"
+                formControlName="email"
+                placeholder="name@example.com"
+                autocomplete="email"
+                fcAutofocus
+                [class.is-invalid]="isInvalid('email')"
+                aria-describedby="sign-in-email-errors">
+              <label for="sign-in-email">Email address</label>
+              @if (isInvalid('email')) {
+                <div id="sign-in-email-errors" class="invalid-feedback">{{ errorTextFor('email') }}</div>
+              }
+            </div>
+
+            <div class="form-floating mb-3">
+              <input
+                type="password"
+                class="form-control"
+                id="sign-in-password"
+                formControlName="password"
+                placeholder="Password"
+                autocomplete="current-password"
+                [class.is-invalid]="isInvalid('password')"
+                aria-describedby="sign-in-password-errors">
+              <label for="sign-in-password">Password</label>
+              @if (isInvalid('password')) {
+                <div id="sign-in-password-errors" class="invalid-feedback">{{ errorTextFor('password') }}</div>
+              }
+            </div>
+
+            @if (showMultiFactorCode()) {
+              <div class="form-floating mb-3">
+                <input
+                  type="text"
+                  class="form-control"
+                  id="sign-in-multi-factor-code"
+                  formControlName="multiFactorCode"
+                  placeholder="123456"
+                  inputmode="numeric"
+                  autocomplete="one-time-code"
+                  maxlength="6"
+                  [class.is-invalid]="isInvalid('multiFactorCode')"
+                  aria-describedby="sign-in-multi-factor-code-errors">
+                <label for="sign-in-multi-factor-code">Authenticator code</label>
+                @if (isInvalid('multiFactorCode')) {
+                  <div id="sign-in-multi-factor-code-errors" class="invalid-feedback">
+                    {{ errorTextFor('multiFactorCode') }}
+                  </div>
+                }
+              </div>
+            }
+
+            <div class="form-check mb-4">
+              <input type="checkbox" class="form-check-input" id="sign-in-remember-me" formControlName="rememberMe">
+              <label class="form-check-label" for="sign-in-remember-me">Keep me signed in</label>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100 py-2" [disabled]="isAuthenticating()">
+              @if (isAuthenticating()) {
+                <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+              }
+              Sign in
+            </button>
+          </form>
+
+          <p class="text-center text-body-secondary mt-4 mb-0">
+            New to FreshCart?
+            <a routerLink="/auth/sign-up" [queryParams]="{ returnUrl: returnUrl() }">Create an account</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

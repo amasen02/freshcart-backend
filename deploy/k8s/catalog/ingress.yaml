@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: catalog
+  namespace: freshcart
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: '8m'
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '60'
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [catalog.freshcart.local]
+      secretName: catalog-tls
+  rules:
+    - host: catalog.freshcart.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: catalog
+                port: { number: 80 }

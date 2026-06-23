@@ -1,0 +1,114 @@
+# ---------------------------------------------------------------------------
+# Per-service CI/CD for the Ordering bounded context.
+# Same job graph as identity-ci.yml: build-test → container → deploy-dev →
+# deploy-staging → deploy-prod, parameterised for Ordering.
+# ---------------------------------------------------------------------------
+name: ordering-ci
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/Services/Ordering/**'
+      - 'src/BuildingBlocks/**'
+      - '.github/workflows/ordering-ci.yml'
+      - '.github/workflows/reusable-*.yml'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+      - 'global.json'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/Services/Ordering/**'
+      - 'src/BuildingBlocks/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ordering-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: Build · Test · Quality
+    uses: ./.github/workflows/reusable-build-test.yml
+    with:
+      serviceName: ordering
+      projectPath: src/Services/Ordering/FreshCart.Ordering.Api/FreshCart.Ordering.Api.csproj
+      testProjectPath: src/Services/Ordering/FreshCart.Ordering.Tests/FreshCart.Ordering.Tests.csproj
+      sonarProjectKey: FreshCart_Ordering
+      sonarOrganization: freshcart
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  container:
+    name: Container · Scan · Sign · Push
+    needs: build-test
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/reusable-container.yml
+    with:
+      serviceName: ordering
+      dockerfilePath: src/Services/Ordering/FreshCart.Ordering.Api/Dockerfile
+      imageRepository: ${{ github.repository_owner }}/freshcart-ordering
+      acrName: freshcartacr
+    secrets:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+  deploy-dev:
+    name: Deploy → DEV
+    needs: container
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: freshcart-dev
+      url: https://ordering-dev.freshcart.local
+    uses: ./.github/workflows/reusable-helm-deploy.yml
+    with:
+      serviceName: ordering
+      chartPath: deploy/helm/ordering
+      valuesFile: deploy/helm/ordering/values-dev.yaml
+      imageTag: ${{ github.sha }}
+      resourceGroup: freshcart-dev
+      aksClusterName: freshcart-dev-aks
+    secrets:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+  deploy-staging:
+    name: Deploy → STAGING (1 approver)
+    needs: deploy-dev
+    environment:
+      name: freshcart-staging
+      url: https://ordering-staging.freshcart.local
+    uses: ./.github/workflows/reusable-helm-deploy.yml
+    with:
+      serviceName: ordering
+      chartPath: deploy/helm/ordering
+      valuesFile: deploy/helm/ordering/values-staging.yaml
+      imageTag: ${{ github.sha }}
+      resourceGroup: freshcart-staging
+      aksClusterName: freshcart-staging-aks
+    secrets:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+  deploy-prod:
+    name: Deploy → PROD (blue/green, 2 approvers)
+    needs: deploy-staging
+    environment:
+      name: freshcart-prod
+      url: https://ordering.freshcart.com
+    uses: ./.github/workflows/reusable-helm-deploy.yml
+    with:
+      serviceName: ordering
+      chartPath: deploy/helm/ordering
+      valuesFile: deploy/helm/ordering/values-prod.yaml
+      imageTag: ${{ github.sha }}
+      resourceGroup: freshcart-prod
+      aksClusterName: freshcart-prod-aks
+    secrets:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}

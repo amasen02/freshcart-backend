@@ -1,0 +1,178 @@
+# ---------------------------------------------------------------------------
+# Default values for the Catalog Helm chart.
+# Per-environment overrides live in values-dev.yaml / values-staging.yaml /
+# values-prod.yaml - keep this file as the most restrictive baseline.
+# ---------------------------------------------------------------------------
+
+nameOverride: ''
+fullnameOverride: ''
+
+image:
+  repository: freshcartacr.azurecr.io/freshcart/catalog
+  tag: latest                                # overridden by CI to commit SHA
+  pullPolicy: IfNotPresent
+
+imagePullSecrets:
+  - name: freshcart-acr-pull
+
+replicaCount: 2
+
+revisionHistoryLimit: 5
+
+serviceAccount:
+  create: true
+  name: catalog
+  # Workload Identity - bind the federated identity client id at install time.
+  azureWorkloadIdentityClientId: ''
+
+podLabels:
+  app.kubernetes.io/component: backend
+  app.kubernetes.io/part-of: freshcart
+
+podAnnotations:
+  # Force a rolling restart when ConfigMap or Secret content changes.
+  checksum/config: ''
+
+# Hardened pod security context - PSS "restricted" baseline.
+podSecurityContext:
+  fsGroup: 1000
+  runAsNonRoot: true
+  runAsUser: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+  appProtocol: http
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: '8m'
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '60'
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: catalog.freshcart.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: catalog-tls
+      hosts:
+        - catalog.freshcart.local
+
+resources:
+  requests:
+    cpu: '100m'
+    memory: '256Mi'
+    ephemeral-storage: '128Mi'
+  limits:
+    cpu: '500m'
+    memory: '512Mi'
+    ephemeral-storage: '512Mi'
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 65
+  targetMemoryUtilizationPercentage: 75
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Health probes hit the endpoints surfaced by AddFreshCartServiceDefaults().
+# Only /alive and /ready exist in Production (/health is Development/Staging-only),
+# so the startup probe targets /ready: the pod counts as started once its
+# dependencies pass, then the liveness probe takes over.
+probes:
+  liveness:
+    path: /alive
+    initialDelaySeconds: 15
+    periodSeconds: 20
+    failureThreshold: 3
+  readiness:
+    path: /ready
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    failureThreshold: 3
+  startup:
+    path: /ready
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    failureThreshold: 30
+
+# Application configuration. Non-secret values land in the ConfigMap;
+# secret values land in the Secret (or come from Azure Key Vault via CSI).
+config:
+  ASPNETCORE_ENVIRONMENT: Production
+  ASPNETCORE_HTTP_PORTS: '8080'
+  OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector.observability.svc.cluster.local:4317'
+  OTEL_SERVICE_NAME: 'freshcart-catalog'
+  Cors__AllowedOrigins__0: 'https://www.freshcart.local'
+  Jwt__Issuer: 'https://identity.freshcart.local'
+  Jwt__Audience: 'https://freshcart.local'
+
+# Sensitive values - pulled from Azure Key Vault in real environments.
+secrets:
+  # Either reference an externally-managed Secret via secretRef, or let the
+  # chart create one from these literal values (DEV only).
+  externalSecretName: ''
+  literal:
+    ConnectionStrings__catalogdb: ''
+    ConnectionStrings__cache: ''
+
+# Azure Key Vault CSI driver wiring. Set keyVault.name in env values to enable.
+keyVault:
+  enabled: false
+  name: ''
+  tenantId: ''
+  secrets:
+    - catalogdb-connection-string
+    - cache-connection-string
+
+# Prometheus ServiceMonitor - enabled in environments running Azure Managed Prometheus.
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  scrapeTimeout: 10s
+  labels: {}
+
+# NetworkPolicy - default-deny + explicit allow-list.
+networkPolicy:
+  enabled: true
+  ingressFrom:
+    - namespaceSelector:
+        matchLabels: { name: ingress-nginx }
+    - namespaceSelector:
+        matchLabels: { name: freshcart }
+      podSelector:
+        matchLabels: { app.kubernetes.io/name: gateway }
+  egressTo:
+    - cidr: 10.0.0.0/8        # cluster + Postgres/Redis private endpoints
+    - cidr: 168.63.129.16/32  # Azure DNS
+
+nodeSelector: {}
+tolerations: []
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: catalog

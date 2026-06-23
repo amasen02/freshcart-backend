@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>FreshCart.Reporting.Infrastructure</RootNamespace>
+    <AssemblyName>FreshCart.Reporting.Infrastructure</AssemblyName>
+    <Description>Reporting infrastructure layer. Dapper against MySQL warehouse, QuestPDF invoice rendering, ClosedXML Excel export, Azure Blob document store, projection writer + inbox.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Dapper" />
+    <!-- Pomelo 9.0.0 caps EF Core at the 9.0.x line; this service overrides the central EF 10 pin
+         until Pomelo ships an EF Core 10 release. The warehouse is isolated, so the mixed EF
+         versions never meet in one process. -->
+    <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" VersionOverride="9.0.17" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" VersionOverride="9.0.17" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" VersionOverride="9.0.17" PrivateAssets="all" />
+    <PackageReference Include="MassTransit" />
+    <PackageReference Include="QuestPDF" />
+    <PackageReference Include="ClosedXML" />
+    <PackageReference Include="Azure.Storage.Blobs" />
+    <PackageReference Include="Azure.Identity" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FreshCart.Reporting.Application\FreshCart.Reporting.Application.csproj" />
+  </ItemGroup>
+
+</Project>

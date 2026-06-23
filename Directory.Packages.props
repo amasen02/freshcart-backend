@@ -1,0 +1,190 @@
+<Project>
+
+  <!--
+       Central Package Management (CPM).
+       Every csproj declares <PackageReference Include="X" /> without a version;
+       versions live here, single source of truth.
+  -->
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup Label="ASP.NET Core + Hosting">
+    <!-- 10.0.9 servicing line clears CVE-2026-40372 (DataProtection) and CVE-2026-33116/26171 (Cryptography.Xml). -->
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.Extensions.Identity.Stores" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.AspNetCore.DataProtection.StackExchangeRedis" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.FeatureManagement.AspNetCore" Version="4.0.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Carter + MediatR + Validation + Mapping">
+    <PackageVersion Include="Carter" Version="8.2.1" />
+    <PackageVersion Include="MediatR" Version="12.4.1" />
+    <PackageVersion Include="FluentValidation" Version="11.10.0" />
+    <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="11.10.0" />
+    <PackageVersion Include="Mapster" Version="7.4.0" />
+    <PackageVersion Include="Mapster.DependencyInjection" Version="1.0.1" />
+  </ItemGroup>
+
+  <ItemGroup Label="Persistence + Data Access">
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.9" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
+    <PackageVersion Include="Pomelo.EntityFrameworkCore.MySql" Version="9.0.0" />
+    <!-- 8.37.0 is the first release clearing GHSA-vmw2-qwm8-x84c (critical full-text-search SQLi); no 7.x fix exists. -->
+    <PackageVersion Include="Marten" Version="8.37.0" />
+    <PackageVersion Include="Marten.AspNetCore" Version="8.37.0" />
+    <PackageVersion Include="Dapper" Version="2.1.66" />
+    <!-- 3.4.3 is the floor Aspire.Hosting.MongoDB 9.5.2 requires transitively. -->
+    <PackageVersion Include="MongoDB.Driver" Version="3.4.3" />
+    <!-- MongoDB.Driver wire-compression transitives. Snappier 1.3.1 clears GHSA-pggp-6c3x-2xmx (high).
+         SharpCompress 0.47.4 is the latest published; its advisory GHSA-6c8g-7p36-r338 (path traversal in
+         WriteToDirectory, which FreshCart never calls) has no fixed release and is risk-accepted via the
+         NuGetAuditSuppress entry in Directory.Build.props. -->
+    <PackageVersion Include="SharpCompress" Version="0.47.4" />
+    <PackageVersion Include="Snappier" Version="1.3.1" />
+    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.46.0" />
+    <PackageVersion Include="Azure.Storage.Blobs" Version="12.23.0" />
+    <!-- EF Core 10.0.x SqlServer provider requires SqlClient >= 6.1.1. -->
+    <PackageVersion Include="Microsoft.Data.SqlClient" Version="6.1.5" />
+    <!-- 9.0.4 is the floor Marten 8.37.0 requires transitively (via Npgsql.Json.NET 9.0.4). -->
+    <PackageVersion Include="Npgsql" Version="9.0.4" />
+  </ItemGroup>
+
+  <ItemGroup Label="Caching">
+    <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.Hybrid" Version="10.0.0" />
+    <!-- 2.9.11 is the floor Aspire.Hosting.Redis 9.5.2 requires transitively. -->
+    <PackageVersion Include="StackExchange.Redis" Version="2.9.11" />
+  </ItemGroup>
+
+  <ItemGroup Label="Transitive security pins">
+    <!-- MessagePack arrives transitively via SignalR / Aspire. 2.5.301 clears GHSA-hv8m-jj95-wg3x (high)
+         on the v2 line; the v3 branch carries breaking API changes and is intentionally avoided. -->
+    <PackageVersion Include="MessagePack" Version="2.5.301" />
+  </ItemGroup>
+
+  <ItemGroup Label="Messaging">
+    <PackageVersion Include="MassTransit" Version="8.3.4" />
+    <PackageVersion Include="MassTransit.RabbitMQ" Version="8.3.4" />
+    <PackageVersion Include="MassTransit.EntityFrameworkCore" Version="8.3.4" />
+    <PackageVersion Include="MassTransit.Azure.ServiceBus.Core" Version="8.3.4" />
+    <!-- 7.1.2 is the floor Aspire.Hosting.RabbitMQ 9.5.2 requires transitively. -->
+    <PackageVersion Include="RabbitMQ.Client" Version="7.1.2" />
+  </ItemGroup>
+
+  <ItemGroup Label="gRPC">
+    <!-- Aspire.Hosting.AppHost 9.5.2 pulls Grpc.Tools >= 2.72.0 transitively; with transitive
+         pinning a lower pin is an NU1109 downgrade. Grpc.AspNetCore has no 2.72.x release, so the
+         family is aligned to 2.76.0 (the next published meta-package), which requires
+         Google.Protobuf >= 3.31.1. Aspire's own floor is Google.Protobuf >= 3.32.0, so 3.32.0 wins. -->
+    <PackageVersion Include="Grpc.AspNetCore" Version="2.76.0" />
+    <PackageVersion Include="Grpc.Net.Client" Version="2.76.0" />
+    <PackageVersion Include="Grpc.Tools" Version="2.76.0" />
+    <PackageVersion Include="Google.Protobuf" Version="3.32.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="API Gateway">
+    <PackageVersion Include="Yarp.ReverseProxy" Version="2.2.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Document Generation">
+    <PackageVersion Include="QuestPDF" Version="2024.12.3" />
+    <PackageVersion Include="ClosedXML" Version="0.105.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Observability">
+    <!-- 1.15.3 is the first version clearing GHSA-g94r-2vxg-569j (Api) and GHSA-4625-4j76-fww9 (OTLP exporter). -->
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.15.3" />
+    <PackageVersion Include="OpenTelemetry" Version="1.15.3" />
+    <PackageVersion Include="OpenTelemetry.Api" Version="1.15.3" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.11.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.11.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.11.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.GrpcNetClient" Version="1.10.0-beta.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.EntityFrameworkCore" Version="1.10.0-beta.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.StackExchangeRedis" Version="1.10.0-beta.1" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
+    <PackageVersion Include="Serilog.AspNetCore" Version="9.0.0" />
+    <PackageVersion Include="Serilog.Sinks.Console" Version="6.0.0" />
+    <PackageVersion Include="Serilog.Sinks.Seq" Version="9.0.0" />
+    <PackageVersion Include="Serilog.Sinks.Elasticsearch" Version="10.0.0" />
+    <PackageVersion Include="Serilog.Enrichers.Environment" Version="3.0.1" />
+    <PackageVersion Include="Serilog.Enrichers.Process" Version="3.0.0" />
+    <PackageVersion Include="Serilog.Enrichers.Thread" Version="4.0.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.UI.Client" Version="9.0.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.SqlServer" Version="9.0.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.MySql" Version="9.0.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.Redis" Version="9.0.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.Rabbitmq" Version="9.0.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.MongoDb" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Aspire">
+    <!-- 9.5.2 is the last Aspire 9.x; 9.1 predates the SDK-side IsAspireHost wiring
+         the .NET 10 SDK requires, so the Projects.* AppHost metadata was never generated. -->
+    <PackageVersion Include="Aspire.Hosting.AppHost" Version="9.5.2" />
+    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="9.5.2" />
+    <PackageVersion Include="Aspire.Hosting.SqlServer" Version="9.5.2" />
+    <PackageVersion Include="Aspire.Hosting.Redis" Version="9.5.2" />
+    <PackageVersion Include="Aspire.Hosting.RabbitMQ" Version="9.5.2" />
+    <PackageVersion Include="Aspire.Hosting.MongoDB" Version="9.5.2" />
+    <PackageVersion Include="Aspire.Hosting.MySql" Version="9.5.2" />
+    <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="9.5.2" />
+    <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.5.2" />
+    <PackageVersion Include="Aspire.Microsoft.EntityFrameworkCore.SqlServer" Version="9.5.2" />
+    <PackageVersion Include="Aspire.StackExchange.Redis" Version="9.5.2" />
+  </ItemGroup>
+
+  <ItemGroup Label="Security">
+    <!-- Microsoft.Data.SqlClient 6.1.5 requires Azure.Identity >= 1.17.1. -->
+    <PackageVersion Include="Azure.Identity" Version="1.17.1" />
+    <PackageVersion Include="Konscious.Security.Cryptography.Argon2" Version="1.3.1" />
+    <PackageVersion Include="NWebsec.AspNetCore.Middleware" Version="3.0.0" />
+    <PackageVersion Include="Microsoft.IdentityModel.Tokens" Version="8.3.0" />
+    <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.3.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Antiforgery" Version="2.2.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Analyzers (referenced from Directory.Build.props)">
+    <PackageVersion Include="Meziantou.Analyzer" Version="2.0.190" />
+    <PackageVersion Include="AsyncFixer" Version="1.6.0" />
+    <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.6.0.109712" />
+    <PackageVersion Include="Roslynator.Analyzers" Version="4.13.0" />
+    <PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
+  </ItemGroup>
+
+  <ItemGroup Label="Testing">
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageVersion Include="xunit" Version="2.9.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.0.0" />
+    <PackageVersion Include="FluentAssertions" Version="6.12.2" />
+    <PackageVersion Include="NSubstitute" Version="5.3.0" />
+    <PackageVersion Include="Testcontainers" Version="4.0.0" />
+    <PackageVersion Include="Testcontainers.MsSql" Version="4.0.0" />
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.0.0" />
+    <PackageVersion Include="Testcontainers.Redis" Version="4.0.0" />
+    <PackageVersion Include="Testcontainers.RabbitMq" Version="4.0.0" />
+    <PackageVersion Include="Testcontainers.MongoDb" Version="4.0.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.9" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.2" />
+    <PackageVersion Include="WireMock.Net" Version="1.6.10" />
+  </ItemGroup>
+
+</Project>

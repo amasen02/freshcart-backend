@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>FreshCart.Payment.Application</RootNamespace>
+    <AssemblyName>FreshCart.Payment.Application</AssemblyName>
+    <Description>Payment application layer. Capture and refund commands orchestrating the event-sourced aggregate, read-model queries, and the ports (event store, read model, provider) the infrastructure layer implements.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MediatR" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FreshCart.Payment.Domain\FreshCart.Payment.Domain.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\FreshCart.BuildingBlocks\FreshCart.BuildingBlocks.csproj" />
+  </ItemGroup>
+
+</Project>

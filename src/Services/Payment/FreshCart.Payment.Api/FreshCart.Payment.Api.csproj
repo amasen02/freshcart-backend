@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>FreshCart.Payment.Api</RootNamespace>
+    <AssemblyName>FreshCart.Payment.Api</AssemblyName>
+    <UserSecretsId>freshcart-payment-api</UserSecretsId>
+    <Description>FreshCart Payment HTTP host. Synchronous capture and refund API over the event-sourced payment ledger; called by the Ordering saga, queried by back office.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AspNetCore.HealthChecks.MongoDb" />
+    <PackageReference Include="AspNetCore.HealthChecks.SqlServer" />
+    <PackageReference Include="AspNetCore.HealthChecks.UI.Client" />
+    <PackageReference Include="Carter" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="Serilog.Enrichers.Environment" />
+    <PackageReference Include="Serilog.Enrichers.Process" />
+    <PackageReference Include="Serilog.Enrichers.Thread" />
+    <PackageReference Include="Serilog.Sinks.Console" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FreshCart.Payment.Application\FreshCart.Payment.Application.csproj" />
+    <ProjectReference Include="..\FreshCart.Payment.Infrastructure\FreshCart.Payment.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\FreshCart.BuildingBlocks\FreshCart.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\FreshCart.ServiceDefaults\FreshCart.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+</Project>

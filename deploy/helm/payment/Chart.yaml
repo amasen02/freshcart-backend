@@ -1,0 +1,30 @@
+apiVersion: v2
+name: payment
+description: FreshCart Payment service: event-sourced payment capture with a Mongo event store.
+type: application
+
+# Bumped on every chart change (template, defaults). NOT the app version.
+version: 0.1.0
+
+appVersion: '0.1.0'
+
+home: https://github.com/amasen02/FreshCart
+sources:
+  - https://github.com/amasen02/FreshCart
+
+maintainers:
+  - name: Ama Senevirathne
+    email: amabandarasp@gmail.com
+
+keywords:
+  - freshcart
+  - payment
+  - event-sourcing
+  - mongodb
+  - compliance
+  - dotnet10
+  - aks
+
+annotations:
+  category: Application
+  licenses: MIT

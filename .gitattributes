@@ -1,0 +1,39 @@
+# Default behaviour: normalize line endings to LF on commit, check out native
+* text=auto eol=lf
+
+# Force LF for source
+*.cs        text eol=lf diff=csharp
+*.csproj    text eol=lf
+*.props     text eol=lf
+*.targets   text eol=lf
+*.json      text eol=lf
+*.yaml      text eol=lf
+*.yml       text eol=lf
+*.ts        text eol=lf
+*.tsx       text eol=lf
+*.js        text eol=lf
+*.html      text eol=lf
+*.scss      text eol=lf
+*.css       text eol=lf
+*.md        text eol=lf
+*.sh        text eol=lf
+*.bicep     text eol=lf
+*.tf        text eol=lf
+Dockerfile* text eol=lf
+
+# Windows-only batch files keep CRLF
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+*.ps1       text eol=crlf
+
+# Treat binary explicitly
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.pdf       binary
+*.rdlc      binary
+*.dll       binary
+*.exe       binary
+*.nupkg     binary

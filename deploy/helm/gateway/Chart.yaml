@@ -1,0 +1,30 @@
+apiVersion: v2
+name: gateway
+description: FreshCart API Gateway: YARP edge with the cookie-to-JWT BFF trust boundary.
+type: application
+
+# Bumped on every chart change (template, defaults). NOT the app version.
+version: 0.1.0
+
+appVersion: '0.1.0'
+
+home: https://github.com/amasen02/FreshCart
+sources:
+  - https://github.com/amasen02/FreshCart
+
+maintainers:
+  - name: Ama Senevirathne
+    email: amabandarasp@gmail.com
+
+keywords:
+  - freshcart
+  - gateway
+  - yarp
+  - bff
+  - edge
+  - dotnet10
+  - aks
+
+annotations:
+  category: Networking
+  licenses: MIT

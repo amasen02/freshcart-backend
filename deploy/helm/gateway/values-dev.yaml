@@ -1,0 +1,35 @@
+replicaCount: 1
+
+image:
+  pullPolicy: Always
+
+ingress:
+  hosts:
+    - host: gateway.dev.freshcart.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: gateway-tls-dev
+      hosts: [gateway.dev.freshcart.local]
+
+resources:
+  requests: { cpu: '50m', memory: '128Mi' }
+  limits:   { cpu: '300m', memory: '384Mi' }
+
+autoscaling:
+  enabled: false
+
+podDisruptionBudget:
+  enabled: false
+
+config:
+  ASPNETCORE_ENVIRONMENT: Development
+
+secrets:
+  literal:
+    ConnectionStrings__cache: 'freshcart-dev-redis.redis.cache.windows.net:6380,ssl=True,abortConnect=False'
+    Jwt__SigningKey: 'replace-from-keyvault-in-real-environment-min-32-chars'
+
+serviceMonitor:
+  enabled: true

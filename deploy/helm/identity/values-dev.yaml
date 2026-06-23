@@ -1,0 +1,35 @@
+replicaCount: 1
+
+image:
+  pullPolicy: Always
+
+ingress:
+  hosts:
+    - host: identity.dev.freshcart.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: identity-tls-dev
+      hosts: [identity.dev.freshcart.local]
+
+resources:
+  requests: { cpu: '50m', memory: '128Mi' }
+  limits:   { cpu: '300m', memory: '384Mi' }
+
+autoscaling:
+  enabled: false
+
+podDisruptionBudget:
+  enabled: false
+
+config:
+  ASPNETCORE_ENVIRONMENT: Development
+
+secrets:
+  literal:
+    ConnectionStrings__identitydb: 'Server=tcp:freshcart-dev-sql.database.windows.net,1433;Database=FreshCart.Identity;Authentication=Active Directory Workload Identity;Encrypt=True'
+    Jwt__SigningKey: 'replace-from-keyvault-in-real-environment-min-32-chars'
+
+serviceMonitor:
+  enabled: true

@@ -1,0 +1,35 @@
+replicaCount: 1
+
+image:
+  pullPolicy: Always
+
+ingress:
+  hosts:
+    - host: catalog.dev.freshcart.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: catalog-tls-dev
+      hosts: [catalog.dev.freshcart.local]
+
+resources:
+  requests: { cpu: '50m', memory: '128Mi' }
+  limits:   { cpu: '300m', memory: '384Mi' }
+
+autoscaling:
+  enabled: false
+
+podDisruptionBudget:
+  enabled: false
+
+config:
+  ASPNETCORE_ENVIRONMENT: Development
+
+secrets:
+  literal:
+    ConnectionStrings__catalogdb: 'Host=freshcart-dev-postgres.postgres.database.azure.com;Database=freshcart_catalog;Username=freshcart;Ssl Mode=Require'
+    ConnectionStrings__cache: 'freshcart-dev-redis.redis.cache.windows.net:6380,ssl=True,abortConnect=False'
+
+serviceMonitor:
+  enabled: true

@@ -1,0 +1,77 @@
+# ---------------------------------------------------------------------------
+# Bicep infrastructure — what-if on PR, apply on tag.
+# ---------------------------------------------------------------------------
+name: infrastructure
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'infra/**'
+      - '.github/workflows/infrastructure.yml'
+  push:
+    tags:
+      - 'infra-v*'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options: [dev, staging, prod]
+      mode:
+        description: 'what-if or apply'
+        required: true
+        default: 'what-if'
+        type: choice
+        options: [what-if, apply]
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+jobs:
+  bicep:
+    name: Bicep · ${{ github.event.inputs.environment || 'dev' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Resolve env file
+        id: env
+        run: |
+          ENV="${{ github.event.inputs.environment || 'dev' }}"
+          echo "envFile=infra/env/${ENV}.bicepparam" >> "$GITHUB_OUTPUT"
+          echo "envName=${ENV}" >> "$GITHUB_OUTPUT"
+
+      - name: az bicep build (validate syntax)
+        run: az bicep build --file infra/main.bicep --stdout > /dev/null
+
+      - name: az deployment sub what-if
+        if: ${{ github.event.inputs.mode != 'apply' }}
+        run: |
+          az deployment sub what-if \
+            --location eastus \
+            --template-file infra/main.bicep \
+            --parameters @${{ steps.env.outputs.envFile }} \
+            --result-format FullResourcePayloads
+
+      - name: az deployment sub create (apply)
+        if: ${{ github.event.inputs.mode == 'apply' || startsWith(github.ref, 'refs/tags/infra-v') }}
+        run: |
+          az deployment sub create \
+            --location eastus \
+            --name freshcart-${{ steps.env.outputs.envName }}-${{ github.run_id }} \
+            --template-file infra/main.bicep \
+            --parameters @${{ steps.env.outputs.envFile }}

@@ -1,0 +1,35 @@
+replicaCount: 1
+
+image:
+  pullPolicy: Always
+
+ingress:
+  hosts:
+    - host: payment.dev.freshcart.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: payment-tls-dev
+      hosts: [payment.dev.freshcart.local]
+
+resources:
+  requests: { cpu: '50m', memory: '128Mi' }
+  limits:   { cpu: '300m', memory: '384Mi' }
+
+autoscaling:
+  enabled: false
+
+podDisruptionBudget:
+  enabled: false
+
+config:
+  ASPNETCORE_ENVIRONMENT: Development
+
+secrets:
+  literal:
+    ConnectionStrings__paymentevents: 'mongodb://freshcart-dev-cosmos.mongo.cosmos.azure.com:10255/freshcart_payment?ssl=true&retrywrites=false'
+    ConnectionStrings__paymentreaddb: 'Server=tcp:freshcart-dev-sql.database.windows.net,1433;Database=FreshCart.PaymentRead;Authentication=Active Directory Workload Identity;Encrypt=True'
+
+serviceMonitor:
+  enabled: true

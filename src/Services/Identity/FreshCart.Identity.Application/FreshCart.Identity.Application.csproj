@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>FreshCart.Identity.Application</RootNamespace>
+    <AssemblyName>FreshCart.Identity.Application</AssemblyName>
+    <Description>FreshCart Identity application layer. Contains command and query handlers, validators and the abstractions Infrastructure must implement. Has no direct database or framework dependencies.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MediatR" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FreshCart.Identity.Domain\FreshCart.Identity.Domain.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\FreshCart.BuildingBlocks\FreshCart.BuildingBlocks.csproj" />
+  </ItemGroup>
+
+</Project>

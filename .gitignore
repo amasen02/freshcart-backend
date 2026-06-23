@@ -1,0 +1,112 @@
+# ----------------------------------------------------------------------------
+# Internal build notes (not for public consumption)
+# ----------------------------------------------------------------------------
+soul.md
+.claude/
+
+# ----------------------------------------------------------------------------
+# .NET
+# ----------------------------------------------------------------------------
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+.vs/
+.vscode/
+*.user
+*.suo
+*.userprefs
+*.userosscache
+*.sln.docstates
+*.pidb
+*.svclog
+*.scc
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]uild/
+[Bb]uilds/
+
+# NuGet
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nuget.props
+*.nuget.targets
+
+# Test results
+[Tt]est[Rr]esult*/
+coverage/
+*.coverage
+*.coveragexml
+TestResults/
+
+# Tooling
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Local user secrets
+*.userdb
+secrets.json
+appsettings.Local.json
+appsettings.*.Local.json
+
+# Azure
+.azure/
+
+# ----------------------------------------------------------------------------
+# Node / Angular
+# ----------------------------------------------------------------------------
+node_modules/
+.angular/
+dist/
+.nx/
+*.tsbuildinfo
+.cache/
+.parcel-cache/
+.env
+.env.local
+.env.*.local
+
+# ----------------------------------------------------------------------------
+# Docker / Compose
+# ----------------------------------------------------------------------------
+docker-compose.override.local.yaml
+.docker-data/
+
+# ----------------------------------------------------------------------------
+# Kubernetes / Helm
+# ----------------------------------------------------------------------------
+charts/*.tgz
+*.lock
+
+# ----------------------------------------------------------------------------
+# Terraform / Bicep
+# ----------------------------------------------------------------------------
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# ----------------------------------------------------------------------------
+# OS-specific
+# ----------------------------------------------------------------------------
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# ----------------------------------------------------------------------------
+# Local stack data
+# ----------------------------------------------------------------------------
+deploy/docker/data/

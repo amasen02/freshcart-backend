@@ -1,0 +1,33 @@
+replicaCount: 2
+
+image:
+  pullPolicy: IfNotPresent
+
+ingress:
+  hosts:
+    - host: inventory.staging.freshcart.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: inventory-tls-staging
+      hosts: [inventory.staging.freshcart.local]
+
+resources:
+  requests: { cpu: '100m', memory: '256Mi' }
+  limits:   { cpu: '500m', memory: '512Mi' }
+
+autoscaling:
+  minReplicas: 2
+  maxReplicas: 6
+
+config:
+  ASPNETCORE_ENVIRONMENT: Staging
+
+keyVault:
+  enabled: true
+  name: freshcart-staging-kv
+  tenantId: ''           # set per-tenant in CI / az cli
+
+serviceMonitor:
+  enabled: true

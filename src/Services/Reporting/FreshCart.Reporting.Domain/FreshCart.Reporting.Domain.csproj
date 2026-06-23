@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>FreshCart.Reporting.Domain</RootNamespace>
+    <AssemblyName>FreshCart.Reporting.Domain</AssemblyName>
+    <Description>FreshCart Reporting domain layer. Invoices, sales snapshots, KPI metrics, and the read-warehouse value objects. No infrastructure dependencies.</Description>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,13 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: reviews
+  namespace: freshcart
+spec:
+  selector:
+    matchLabels: { app.kubernetes.io/name: reviews }
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s

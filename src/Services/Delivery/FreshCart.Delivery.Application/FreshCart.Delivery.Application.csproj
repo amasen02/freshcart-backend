@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>FreshCart.Delivery.Application</RootNamespace>
+    <AssemblyName>FreshCart.Delivery.Application</AssemblyName>
+    <Description>Delivery application core: ports (repositories, geocoding), application services orchestrating the scheduling hexagon, tracking queries, and the integration-event consumers. No MediatR bus: the hexagon's use cases are plain application services that drive the ports directly, so the CQRS dispatch layer would add indirection without removing any.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MassTransit" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FreshCart.Delivery.Domain\FreshCart.Delivery.Domain.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\FreshCart.BuildingBlocks\FreshCart.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\FreshCart.BuildingBlocks.Messaging\FreshCart.BuildingBlocks.Messaging.csproj" />
+  </ItemGroup>
+
+</Project>

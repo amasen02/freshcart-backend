@@ -1,0 +1,65 @@
+<Project>
+
+  <!--
+       Repo-wide MSBuild defaults.
+       Every csproj in src/ inherits these without restating them.
+       Justifies the strict-by-default posture documented in docs/CONVENTIONS.md.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <AnalysisMode>All</AnalysisMode>
+    <CodeAnalysisTreatWarningsAsErrors>true</CodeAnalysisTreatWarningsAsErrors>
+
+    <NoWarn>$(NoWarn);CA1014;CA1716;CA1707</NoWarn>
+
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+
+    <Authors>Ama Senevirathne</Authors>
+    <Company>FreshCart</Company>
+    <Product>FreshCart Online Supermarket</Product>
+    <RepositoryUrl>https://github.com/amasen02/FreshCart</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(TF_BUILD)' == 'true' or '$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <!--
+       Risk-accepted NuGet audit suppressions. Each entry is a transitive dependency with NO published
+       fixed version, reached only on a non-exploitable path. Reviewed per release; remove the moment a
+       patched version ships. Replaces the previous blanket NU1902/NU1903 demotion so that any *new* or
+       *patchable* vulnerability still fails the build.
+  -->
+  <ItemGroup>
+    <!-- SharpCompress GHSA-6c8g-7p36-r338 (moderate): path traversal in WriteToDirectory(); reached only
+         as a MongoDB.Driver wire-compression transitive and that API is never called by FreshCart. -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-6c8g-7p36-r338" />
+    <!-- SQLitePCLRaw.lib.e_sqlite3 GHSA-2m69-gcr7-jv3q / CVE-2025-6965 (high): bundled SQLite < 3.50.2;
+         reached only via EF Core Sqlite inside test projects, never in a production data path. -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-2m69-gcr7-jv3q" />
+  </ItemGroup>
+
+  <!-- Analyzers shared across every project. -->
+  <ItemGroup>
+    <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" />
+    <PackageReference Include="AsyncFixer" PrivateAssets="all" />
+    <PackageReference Include="SonarAnalyzer.CSharp" PrivateAssets="all" />
+    <PackageReference Include="Roslynator.Analyzers" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>

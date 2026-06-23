@@ -1,0 +1,208 @@
+# ---------------------------------------------------------------------------
+# identity-pipeline.yaml
+#
+# Multi-stage CI/CD for the FreshCart Identity service. Triggers only when
+# files under the service's own source tree or its pipeline file change so
+# the rest of the platform is not rebuilt on unrelated commits.
+#
+# Stages:
+#   1. Build & Quality     — restore, build, test, SonarCloud, vuln scan, publish artifact
+#   2. Container & Push    — build image, Trivy scan, Cosign sign, push to ACR
+#   3. Deploy DEV          — Helm upgrade against AKS dev (auto on main)
+#   4. Deploy STAGING      — Helm upgrade with manual approval (1 approver)
+#   5. Deploy PROD         — Blue/Green via Helm with manual approval (2 approvers)
+# ---------------------------------------------------------------------------
+
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - src/Services/Identity/**
+      - src/BuildingBlocks/**
+      - azure-pipelines/identity-pipeline.yaml
+      - Directory.Build.props
+      - Directory.Packages.props
+      - global.json
+
+pr:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - src/Services/Identity/**
+      - src/BuildingBlocks/**
+
+variables:
+  - name: serviceName
+    value: 'identity'
+  - name: projectPath
+    value: 'src/Services/Identity/FreshCart.Identity.Api/FreshCart.Identity.Api.csproj'
+  - name: testProjectPath
+    value: 'src/Services/Identity/FreshCart.Identity.Tests/FreshCart.Identity.Tests.csproj'
+  - name: dockerfilePath
+    value: 'src/Services/Identity/FreshCart.Identity.Api/Dockerfile'
+  - name: imageRepository
+    value: 'freshcart/identity'
+  - name: containerRegistryServiceConnection
+    value: 'freshcart-acr'
+  - name: azureSubscription
+    value: 'freshcart-azure-subscription'
+  - name: aksResourceGroupDev
+    value: 'freshcart-dev'
+  - name: aksClusterNameDev
+    value: 'freshcart-dev-aks'
+  - name: NUGET_PACKAGES
+    value: '$(Pipeline.Workspace)/.nuget/packages'
+
+stages:
+  - stage: BuildAndQuality
+    displayName: 'Build & Quality'
+    jobs:
+      - job: BuildAndQuality
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - template: templates/build-test-template.yaml
+            parameters:
+              serviceName: $(serviceName)
+              projectPath: $(projectPath)
+              testProjectPath: $(testProjectPath)
+              sonarProjectKey: 'FreshCart_Identity'
+              sonarOrganization: 'freshcart'
+
+  - stage: ContainerAndPush
+    displayName: 'Container & Push'
+    dependsOn: BuildAndQuality
+    condition: succeeded()
+    jobs:
+      - job: ContainerAndPush
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - template: templates/container-template.yaml
+            parameters:
+              serviceName: $(serviceName)
+              dockerfilePath: $(dockerfilePath)
+              imageRepository: $(imageRepository)
+              containerRegistry: $(containerRegistryServiceConnection)
+
+  - stage: DeployDev
+    displayName: 'Deploy → DEV'
+    dependsOn: ContainerAndPush
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: DeployDev
+        environment: 'freshcart-dev'
+        pool:
+          vmImage: 'ubuntu-latest'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureCLI@2
+                  displayName: 'Helm upgrade --install (dev)'
+                  inputs:
+                    azureSubscription: $(azureSubscription)
+                    scriptType: 'bash'
+                    scriptLocation: 'inlineScript'
+                    inlineScript: |
+                      az aks get-credentials \
+                        --resource-group $(aksResourceGroupDev) \
+                        --name $(aksClusterNameDev) \
+                        --overwrite-existing
+
+                      helm upgrade --install $(serviceName) \
+                        deploy/helm/$(serviceName) \
+                        --namespace freshcart \
+                        --create-namespace \
+                        --values deploy/helm/$(serviceName)/values-dev.yaml \
+                        --set image.tag=$(Build.BuildId) \
+                        --wait \
+                        --timeout 5m
+
+                - task: AzureCLI@2
+                  displayName: 'Smoke test /health'
+                  inputs:
+                    azureSubscription: $(azureSubscription)
+                    scriptType: 'bash'
+                    scriptLocation: 'inlineScript'
+                    inlineScript: |
+                      kubectl -n freshcart rollout status deployment/$(serviceName) --timeout=2m
+                      kubectl -n freshcart run smoke-$(Build.BuildId) \
+                        --rm -i --tty --restart=Never --image=curlimages/curl:latest -- \
+                        curl --fail http://$(serviceName)/health
+
+  - stage: DeployStaging
+    displayName: 'Deploy → STAGING'
+    dependsOn: DeployDev
+    condition: succeeded()
+    jobs:
+      - deployment: DeployStaging
+        environment: 'freshcart-staging'
+        pool:
+          vmImage: 'ubuntu-latest'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureCLI@2
+                  displayName: 'Helm upgrade --install (staging)'
+                  inputs:
+                    azureSubscription: $(azureSubscription)
+                    scriptType: 'bash'
+                    scriptLocation: 'inlineScript'
+                    inlineScript: |
+                      az aks get-credentials \
+                        --resource-group freshcart-staging \
+                        --name freshcart-staging-aks \
+                        --overwrite-existing
+
+                      helm upgrade --install $(serviceName) \
+                        deploy/helm/$(serviceName) \
+                        --namespace freshcart \
+                        --create-namespace \
+                        --values deploy/helm/$(serviceName)/values-staging.yaml \
+                        --set image.tag=$(Build.BuildId) \
+                        --wait \
+                        --timeout 5m
+
+  - stage: DeployProd
+    displayName: 'Deploy → PROD (Blue/Green)'
+    dependsOn: DeployStaging
+    condition: succeeded()
+    jobs:
+      - deployment: DeployProd
+        environment: 'freshcart-prod'
+        pool:
+          vmImage: 'ubuntu-latest'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureCLI@2
+                  displayName: 'Helm upgrade (blue) + traffic swap'
+                  inputs:
+                    azureSubscription: $(azureSubscription)
+                    scriptType: 'bash'
+                    scriptLocation: 'inlineScript'
+                    inlineScript: |
+                      az aks get-credentials \
+                        --resource-group freshcart-prod \
+                        --name freshcart-prod-aks \
+                        --overwrite-existing
+
+                      helm upgrade --install $(serviceName)-blue \
+                        deploy/helm/$(serviceName) \
+                        --namespace freshcart \
+                        --values deploy/helm/$(serviceName)/values-prod.yaml \
+                        --set image.tag=$(Build.BuildId) \
+                        --set color=blue \
+                        --wait \
+                        --timeout 10m
+
+                      # Swap the active service selector to the blue slot.
+                      kubectl -n freshcart patch service $(serviceName) \
+                        -p '{"spec":{"selector":{"app":"$(serviceName)","color":"blue"}}}'

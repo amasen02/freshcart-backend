@@ -1,0 +1,552 @@
+# ---------------------------------------------------------------------------
+# Local backing-services stack for FreshCart.
+# Brings up every database, cache, broker and observability tool that the
+# microservices depend on so a developer can boot the whole platform with a
+# single `docker compose up -d`.
+#
+# Service code itself is NOT started here — use `dotnet run` against the
+# Aspire AppHost (src/AspireAppHost/FreshCart.AppHost) once this stack is up.
+# ---------------------------------------------------------------------------
+
+name: freshcart-local
+
+services:
+
+  # --- Relational stores -------------------------------------------------------
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: freshcart-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "FreshCart!LocalDev1"
+      MSSQL_PID: "Developer"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "FreshCart!LocalDev1", "-Q", "SELECT 1", "-C"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: freshcart-postgres
+    environment:
+      POSTGRES_USER: freshcart
+      POSTGRES_PASSWORD: freshcart_local_dev
+      POSTGRES_DB: freshcart
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U freshcart -d freshcart"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  mysql:
+    image: mysql:9
+    container_name: freshcart-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: freshcart_local_dev
+      MYSQL_DATABASE: freshcart_reporting
+      MYSQL_USER: freshcart
+      MYSQL_PASSWORD: freshcart_local_dev
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: unless-stopped
+    command: --default-authentication-plugin=caching_sha2_password
+
+  # --- Document store --------------------------------------------------------
+
+  mongodb:
+    image: mongo:8
+    container_name: freshcart-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: freshcart
+      MONGO_INITDB_ROOT_PASSWORD: freshcart_local_dev
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    restart: unless-stopped
+
+  # --- Cache and SignalR backplane -------------------------------------------
+
+  redis:
+    image: redis:7-alpine
+    container_name: freshcart-redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  # --- Message broker --------------------------------------------------------
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    container_name: freshcart-rabbitmq
+    hostname: freshcart-mq
+    environment:
+      RABBITMQ_DEFAULT_USER: freshcart
+      RABBITMQ_DEFAULT_PASS: freshcart_local_dev
+    ports:
+      - "5672:5672"       # AMQP
+      - "15672:15672"     # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    restart: unless-stopped
+
+  # --- Database admin UIs ----------------------------------------------------
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: freshcart-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@freshcart.local
+      PGADMIN_DEFAULT_PASSWORD: freshcart_local_dev
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  mongo-express:
+    image: mongo-express:1.0.2
+    container_name: freshcart-mongo-express
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: freshcart
+      ME_CONFIG_MONGODB_ADMINPASSWORD: freshcart_local_dev
+      ME_CONFIG_MONGODB_SERVER: mongodb
+      ME_CONFIG_BASICAUTH_USERNAME: admin
+      ME_CONFIG_BASICAUTH_PASSWORD: freshcart_local_dev
+    ports:
+      - "8081:8081"
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+
+  # --- Observability ---------------------------------------------------------
+
+  seq:
+    image: datalust/seq:latest
+    container_name: freshcart-seq
+    environment:
+      ACCEPT_EULA: "Y"
+    ports:
+      - "5341:80"
+    volumes:
+      - seq_data:/data
+    restart: unless-stopped
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: freshcart-otelcol
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8889:8889"   # Prometheus exporter
+    depends_on:
+      - prometheus
+      - seq
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: freshcart-prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yaml"
+      - "--storage.tsdb.retention.time=7d"
+    volumes:
+      - ./prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: freshcart-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: freshcart_local_dev
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # --- Application tier ------------------------------------------------------
+  # Connection strings target the backing-service container names above:
+  # sqlserver, postgres, mysql, mongodb, redis, rabbitmq. Each service carves
+  # out its own database/schema on the shared instance. Build contexts resolve
+  # from the repository root (../.. relative to this file's deploy/docker/ dir).
+
+  gateway:
+    build:
+      context: ../..
+      dockerfile: src/ApiGateways/FreshCart.Gateway.Yarp/Dockerfile
+    image: freshcart/gateway:local
+    container_name: freshcart-gateway
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: '8080'
+      OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4317'
+      OTEL_SERVICE_NAME: 'freshcart-gateway'
+      ConnectionStrings__cache: 'redis:6379'
+      Jwt__SigningKey: 'development-only-signing-key-please-replace-32+chars-min-XYZ'
+      ReverseProxy__Clusters__identity__Destinations__primary__Address: 'http://identity:8080'
+      ReverseProxy__Clusters__catalog__Destinations__primary__Address: 'http://catalog:8080'
+      ReverseProxy__Clusters__basket__Destinations__primary__Address: 'http://basket:8080'
+      ReverseProxy__Clusters__ordering__Destinations__primary__Address: 'http://ordering:8080'
+      ReverseProxy__Clusters__delivery__Destinations__primary__Address: 'http://delivery:8080'
+      ReverseProxy__Clusters__reviews__Destinations__primary__Address: 'http://reviews:8080'
+      ReverseProxy__Clusters__inventory__Destinations__primary__Address: 'http://inventory:8080'
+      ReverseProxy__Clusters__reporting__Destinations__primary__Address: 'http://reporting:8080'
+      ReverseProxy__Clusters__notification__Destinations__primary__Address: 'http://notification:8080'
+      ReverseProxy__Clusters__customersupport__Destinations__primary__Address: 'http://customersupport:8080'
+      ReverseProxy__Clusters__pricing__Destinations__primary__Address: 'http://pricing:8080'
+    depends_on:
+      redis:
+        condition: service_started
+    ports:
+      - "5100:8080"
+    restart: unless-stopped
+
+  identity:
+    build:
+      context: ../..
+      dockerfile: src/Services/Identity/FreshCart.Identity.Api/Dockerfile
+    image: freshcart/identity:local
+    container_name: freshcart-identity
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: '8080'
+      OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4317'
+      OTEL_SERVICE_NAME: 'freshcart-identity'
+      ConnectionStrings__identitydb: 'Server=sqlserver;Database=FreshCart.Identity;User Id=sa;Password=FreshCart!LocalDev1;Encrypt=True;TrustServerCertificate=True'
+      Jwt__SigningKey: 'development-only-signing-key-please-replace-32+chars-min-XYZ'
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    ports:
+      - "5101:8080"
+    restart: unless-stopped
+
+  catalog:
+    build:
+      context: ../..
+      dockerfile: src/Services/Catalog/FreshCart.Catalog.Api/Dockerfile
+    image: freshcart/catalog:local
+    container_name: freshcart-catalog
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: '8080'
+      OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4317'
+      OTEL_SERVICE_NAME: 'freshcart-catalog'
+      MessageBroker__Host: 'amqp://rabbitmq:5672'
+      MessageBroker__UserName: 'freshcart'
+      MessageBroker__Password: 'freshcart_local_dev'
+      ConnectionStrings__catalogdb: 'Host=postgres;Database=freshcart_catalog;Username=freshcart;Password=freshcart_local_dev'
+      ConnectionStrings__cache: 'redis:6379'
+      Jwt__SigningKey: 'development-only-signing-key-please-replace-32+chars-min-XYZ'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+    ports:
+      - "5102:8080"
+    restart: unless-stopped
+
+  pricing:
+    build:
+      context: ../..
+      dockerfile: src/Services/Pricing/FreshCart.Pricing.Grpc/Dockerfile
+    image: freshcart/pricing:local
+    container_name: freshcart-pricing
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: '8080'
+      OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4317'
+      OTEL_SERVICE_NAME: 'freshcart-pricing'
+      ConnectionStrings__pricingdb: 'Data Source=/tmp/pricing.db'
+      Jwt__SigningKey: 'development-only-signing-key-please-replace-32+chars-min-XYZ'
+    ports:
+      - "5103:8080"
+    restart: unless-stopped
+
+  basket:
+    build:
+      context: ../..
+      dockerfile: src/Services/Basket/FreshCart.Basket.Api/Dockerfile
+    image: freshcart/basket:local
+    container_name: freshcart-basket
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: '8080'
+      OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4317'
+      OTEL_SERVICE_NAME: 'freshcart-basket'
+      MessageBroker__Host: 'amqp://rabbitmq:5672'
+      MessageBroker__UserName: 'freshcart'
+      MessageBroker__Password: 'freshcart_local_dev'
+      ConnectionStrings__basketdb: 'Host=postgres;Database=freshcart_basket;Username=freshcart;Password=freshcart_local_dev'
+      ConnectionStrings__cache: 'redis:6379'
+      Services__Catalog__BaseAddress: 'http://catalog:8080'
+      Services__Pricing__Address: 'http://pricing:8080'
+      Jwt__SigningKey: 'development-only-signing-key-please-replace-32+chars-min-XYZ'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+    ports:
+      - "5104:8080"
+    restart: unless-stopped
+
+  ordering:
+    build:
+      context: ../..
+      dockerfile: src/Services/Ordering/FreshCart.Ordering.Api/Dockerfile
+    image: freshcart/ordering:local
+    container_name: freshcart-ordering
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: '8080'
+      OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4317'
+      OTEL_SERVICE_NAME: 'freshcart-ordering'
+      MessageBroker__Host: 'amqp://rabbitmq:5672'
+      MessageBroker__UserName: 'freshcart'
+      MessageBroker__Password: 'freshcart_local_dev'
+      ConnectionStrings__orderingdb: 'Server=sqlserver;Database=FreshCart.Ordering;User Id=sa;Password=FreshCart!LocalDev1;Encrypt=True;TrustServerCertificate=True'
+      Services__Inventory__Address: 'http://inventory:8080'
+      Services__Payment__BaseAddress: 'http://payment:8080'
+      Jwt__SigningKey: 'development-only-signing-key-please-replace-32+chars-min-XYZ'
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    ports:
+      - "5105:8080"
+    restart: unless-stopped
+
+  inventory:
+    build:
+      context: ../..
+      dockerfile: src/Services/Inventory/FreshCart.Inventory.Api/Dockerfile
+    image: freshcart/inventory:local
+    container_name: freshcart-inventory
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: '8080'
+      OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4317'
+      OTEL_SERVICE_NAME: 'freshcart-inventory'
+      MessageBroker__Host: 'amqp://rabbitmq:5672'
+      MessageBroker__UserName: 'freshcart'
+      MessageBroker__Password: 'freshcart_local_dev'
+      ConnectionStrings__inventorydb: 'Server=sqlserver;Database=FreshCart.Inventory;User Id=sa;Password=FreshCart!LocalDev1;Encrypt=True;TrustServerCertificate=True'
+      Jwt__SigningKey: 'development-only-signing-key-please-replace-32+chars-min-XYZ'
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    ports:
+      - "5106:8080"
+    restart: unless-stopped
+
+  payment:
+    build:
+      context: ../..
+      dockerfile: src/Services/Payment/FreshCart.Payment.Api/Dockerfile
+    image: freshcart/payment:local
+    container_name: freshcart-payment
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: '8080'
+      OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4317'
+      OTEL_SERVICE_NAME: 'freshcart-payment'
+      ConnectionStrings__paymentevents: 'mongodb://freshcart:freshcart_local_dev@mongodb:27017/freshcart_payment?authSource=admin'
+      ConnectionStrings__paymentreaddb: 'Server=sqlserver;Database=FreshCart.PaymentRead;User Id=sa;Password=FreshCart!LocalDev1;Encrypt=True;TrustServerCertificate=True'
+      Jwt__SigningKey: 'development-only-signing-key-please-replace-32+chars-min-XYZ'
+    depends_on:
+      mongodb:
+        condition: service_started
+      sqlserver:
+        condition: service_healthy
+    ports:
+      - "5107:8080"
+    restart: unless-stopped
+
+  delivery:
+    build:
+      context: ../..
+      dockerfile: src/Services/Delivery/FreshCart.Delivery.Api/Dockerfile
+    image: freshcart/delivery:local
+    container_name: freshcart-delivery
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: '8080'
+      OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4317'
+      OTEL_SERVICE_NAME: 'freshcart-delivery'
+      MessageBroker__Host: 'amqp://rabbitmq:5672'
+      MessageBroker__UserName: 'freshcart'
+      MessageBroker__Password: 'freshcart_local_dev'
+      ConnectionStrings__deliverydb: 'mongodb://freshcart:freshcart_local_dev@mongodb:27017/freshcart_delivery?authSource=admin'
+      Jwt__SigningKey: 'development-only-signing-key-please-replace-32+chars-min-XYZ'
+    depends_on:
+      mongodb:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+    ports:
+      - "5108:8080"
+    restart: unless-stopped
+
+  notification:
+    build:
+      context: ../..
+      dockerfile: src/Services/Notification/FreshCart.Notification.Api/Dockerfile
+    image: freshcart/notification:local
+    container_name: freshcart-notification
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: '8080'
+      OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4317'
+      OTEL_SERVICE_NAME: 'freshcart-notification'
+      MessageBroker__Host: 'amqp://rabbitmq:5672'
+      MessageBroker__UserName: 'freshcart'
+      MessageBroker__Password: 'freshcart_local_dev'
+      ConnectionStrings__notificationsdb: 'mongodb://freshcart:freshcart_local_dev@mongodb:27017/freshcart_notifications?authSource=admin'
+      ConnectionStrings__cache: 'redis:6379'
+      Jwt__SigningKey: 'development-only-signing-key-please-replace-32+chars-min-XYZ'
+    depends_on:
+      mongodb:
+        condition: service_started
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+    ports:
+      - "5109:8080"
+    restart: unless-stopped
+
+  reporting:
+    build:
+      context: ../..
+      dockerfile: src/Services/Reporting/FreshCart.Reporting.Api/Dockerfile
+    image: freshcart/reporting:local
+    container_name: freshcart-reporting
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: '8080'
+      OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4317'
+      OTEL_SERVICE_NAME: 'freshcart-reporting'
+      MessageBroker__Host: 'amqp://rabbitmq:5672'
+      MessageBroker__UserName: 'freshcart'
+      MessageBroker__Password: 'freshcart_local_dev'
+      ConnectionStrings__reportingdb: 'Server=mysql;Database=freshcart_reporting;User Id=freshcart;Password=freshcart_local_dev;'
+      Jwt__SigningKey: 'development-only-signing-key-please-replace-32+chars-min-XYZ'
+    depends_on:
+      mysql:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+    ports:
+      - "5110:8080"
+    restart: unless-stopped
+
+  customersupport:
+    build:
+      context: ../..
+      dockerfile: src/Services/CustomerSupport/FreshCart.CustomerSupport.Api/Dockerfile
+    image: freshcart/customersupport:local
+    container_name: freshcart-customersupport
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: '8080'
+      OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4317'
+      OTEL_SERVICE_NAME: 'freshcart-customersupport'
+      ConnectionStrings__supportchatdb: 'mongodb://freshcart:freshcart_local_dev@mongodb:27017/freshcart_support?authSource=admin'
+      ConnectionStrings__cache: 'redis:6379'
+      Jwt__SigningKey: 'development-only-signing-key-please-replace-32+chars-min-XYZ'
+    depends_on:
+      mongodb:
+        condition: service_started
+      redis:
+        condition: service_started
+    ports:
+      - "5111:8080"
+    restart: unless-stopped
+
+  reviews:
+    build:
+      context: ../..
+      dockerfile: src/Services/Reviews/FreshCart.Reviews.Api/Dockerfile
+    image: freshcart/reviews:local
+    container_name: freshcart-reviews
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: '8080'
+      OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4317'
+      OTEL_SERVICE_NAME: 'freshcart-reviews'
+      MessageBroker__Host: 'amqp://rabbitmq:5672'
+      MessageBroker__UserName: 'freshcart'
+      MessageBroker__Password: 'freshcart_local_dev'
+      ConnectionStrings__reviewsdb: 'mongodb://freshcart:freshcart_local_dev@mongodb:27017/freshcart_reviews?authSource=admin'
+      Jwt__SigningKey: 'development-only-signing-key-please-replace-32+chars-min-XYZ'
+    depends_on:
+      mongodb:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+    ports:
+      - "5112:8080"
+    restart: unless-stopped
+
+  freshcart-spa:
+    build:
+      context: ../../clients/freshcart-customer
+      dockerfile: Dockerfile
+    image: freshcart/spa:local
+    container_name: freshcart-spa
+    depends_on:
+      gateway:
+        condition: service_started
+    ports:
+      - "4200:80"
+    restart: unless-stopped
+
+volumes:
+  sqlserver_data:
+  postgres_data:
+  mysql_data:
+  mongodb_data:
+  redis_data:
+  rabbitmq_data:
+  seq_data:
+  prometheus_data:
+  grafana_data:

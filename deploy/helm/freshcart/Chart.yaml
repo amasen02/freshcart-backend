@@ -1,0 +1,80 @@
+apiVersion: v2
+name: freshcart
+description: 'FreshCart umbrella chart: installs every microservice and the gateway as a single release.'
+type: application
+
+# Bumped on every change to the dependency set. NOT the app version.
+version: 0.1.0
+
+appVersion: '0.1.0'
+
+home: https://github.com/amasen02/FreshCart
+sources:
+  - https://github.com/amasen02/FreshCart
+
+maintainers:
+  - name: Ama Senevirathne
+    email: amabandarasp@gmail.com
+
+keywords:
+  - freshcart
+  - umbrella
+  - microservices
+  - dotnet10
+  - aks
+
+annotations:
+  category: Application
+  licenses: MIT
+
+# Each entry is a local file dependency toggled by the matching enabled flag in
+# values.yaml. Run `helm dependency build deploy/helm/freshcart` before install.
+dependencies:
+  - name: identity
+    version: 0.1.0
+    repository: file://../identity
+    condition: identity.enabled
+  - name: catalog
+    version: 0.1.0
+    repository: file://../catalog
+    condition: catalog.enabled
+  - name: pricing
+    version: 0.1.0
+    repository: file://../pricing
+    condition: pricing.enabled
+  - name: basket
+    version: 0.1.0
+    repository: file://../basket
+    condition: basket.enabled
+  - name: ordering
+    version: 0.1.0
+    repository: file://../ordering
+    condition: ordering.enabled
+  - name: inventory
+    version: 0.1.0
+    repository: file://../inventory
+    condition: inventory.enabled
+  - name: payment
+    version: 0.1.0
+    repository: file://../payment
+    condition: payment.enabled
+  - name: delivery
+    version: 0.1.0
+    repository: file://../delivery
+    condition: delivery.enabled
+  - name: notification
+    version: 0.1.0
+    repository: file://../notification
+    condition: notification.enabled
+  - name: customersupport
+    version: 0.1.0
+    repository: file://../customersupport
+    condition: customersupport.enabled
+  - name: reviews
+    version: 0.1.0
+    repository: file://../reviews
+    condition: reviews.enabled
+  - name: gateway
+    version: 0.1.0
+    repository: file://../gateway
+    condition: gateway.enabled

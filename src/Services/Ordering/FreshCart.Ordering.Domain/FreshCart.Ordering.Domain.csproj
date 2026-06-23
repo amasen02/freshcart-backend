@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>FreshCart.Ordering.Domain</RootNamespace>
+    <AssemblyName>FreshCart.Ordering.Domain</AssemblyName>
+    <Description>FreshCart Ordering domain layer. The Order aggregate owns every lifecycle invariant; value objects, domain events and domain exceptions live here with no infrastructure dependencies.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\FreshCart.BuildingBlocks\FreshCart.BuildingBlocks.csproj" />
+  </ItemGroup>
+
+</Project>

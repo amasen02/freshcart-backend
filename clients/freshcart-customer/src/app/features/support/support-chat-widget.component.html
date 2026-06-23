@@ -1,0 +1,70 @@
+@if (authStore.isAuthenticated()) {
+  <div class="position-fixed bottom-0 end-0 p-3 fc-support-panel">
+    @if (store.widgetOpen()) {
+      <div class="card shadow-lg w-100 d-flex flex-column fc-support-panel">
+        <div class="card-header d-flex align-items-center justify-content-between py-2">
+          <span class="fw-semibold">
+            <i class="bi bi-headset me-2" aria-hidden="true"></i>Support
+          </span>
+          <div class="d-flex align-items-center gap-2">
+            @if (store.isActive()) {
+              <button type="button" class="btn btn-sm btn-outline-light" (click)="endChat()">End chat</button>
+            }
+            <button type="button" class="btn-close" aria-label="Close support chat" (click)="toggle()"></button>
+          </div>
+        </div>
+
+        <div class="card-body d-flex flex-column p-0 overflow-hidden">
+          @if (store.error(); as error) {
+            <div class="alert alert-warning rounded-0 mb-0" role="alert">{{ error.detail }}</div>
+          }
+
+          @if (!store.hasSession()) {
+            <div class="p-3 d-flex flex-column gap-3">
+              <p class="text-body-secondary mb-0">
+                Start a conversation and the next available agent will join you.
+              </p>
+              <form (ngSubmit)="startChat()">
+                <label class="form-label" for="support-topic">What can we help with?</label>
+                <input
+                  id="support-topic"
+                  type="text"
+                  class="form-control mb-2"
+                  [formControl]="topicControl"
+                  autocomplete="off">
+                <button type="submit" class="btn btn-primary w-100">Start chat</button>
+              </form>
+            </div>
+          } @else if (store.isQueued()) {
+            <div class="p-3 text-center my-auto">
+              <div class="spinner-border text-primary mb-3" role="status">
+                <span class="visually-hidden">Waiting for an agent</span>
+              </div>
+              <p class="mb-1 fw-semibold">Connecting you with an agent</p>
+              <p class="text-body-secondary mb-0">{{ store.queuePositionLabel() }}</p>
+            </div>
+          } @else {
+            <fc-chat-thread
+              class="d-flex flex-column flex-grow-1 overflow-hidden"
+              [messages]="store.messages()"
+              viewerRole="Customer"
+              [counterpartName]="store.session()?.agentDisplayName ?? 'Agent'"
+              [counterpartTyping]="store.agentTyping()"
+              [sending]="store.isSending()"
+              [composerDisabled]="store.session()?.status === 'Ended'"
+              (messageSubmitted)="sendMessage($event)"
+              (typingDetected)="reportTyping()" />
+          }
+        </div>
+      </div>
+    } @else {
+      <button
+        type="button"
+        class="btn btn-primary rounded-circle shadow p-3 lh-1"
+        aria-label="Open support chat"
+        (click)="toggle()">
+        <i class="bi bi-chat-dots fs-4" aria-hidden="true"></i>
+      </button>
+    }
+  </div>
+}

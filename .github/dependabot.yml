@@ -1,0 +1,68 @@
+version: 2
+
+updates:
+
+  - package-ecosystem: nuget
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: 'Asia/Colombo'
+    open-pull-requests-limit: 10
+    labels: ['deps', 'nuget']
+    commit-message:
+      prefix: 'chore(deps)'
+      include: 'scope'
+    groups:
+      aspnetcore:
+        patterns:
+          - 'Microsoft.AspNetCore*'
+          - 'Microsoft.Extensions.*'
+      efcore:
+        patterns:
+          - 'Microsoft.EntityFrameworkCore*'
+          - 'Npgsql.EntityFrameworkCore.*'
+          - 'Pomelo.EntityFrameworkCore.*'
+      opentelemetry:
+        patterns:
+          - 'OpenTelemetry*'
+      masstransit:
+        patterns:
+          - 'MassTransit*'
+
+  - package-ecosystem: npm
+    directory: '/clients/freshcart-customer'
+    schedule: { interval: weekly, day: monday, timezone: 'Asia/Colombo' }
+    open-pull-requests-limit: 10
+    labels: ['deps', 'angular']
+    commit-message: { prefix: 'chore(deps-customer)', include: 'scope' }
+    groups:
+      angular:
+        patterns: ['@angular/*']
+
+  - package-ecosystem: npm
+    directory: '/clients/freshcart-admin'
+    schedule: { interval: weekly, day: monday, timezone: 'Asia/Colombo' }
+    open-pull-requests-limit: 10
+    labels: ['deps', 'angular']
+    commit-message: { prefix: 'chore(deps-admin)', include: 'scope' }
+
+  - package-ecosystem: npm
+    directory: '/tests/e2e'
+    schedule: { interval: weekly, day: monday, timezone: 'Asia/Colombo' }
+    open-pull-requests-limit: 5
+    labels: ['deps', 'playwright']
+    commit-message: { prefix: 'chore(deps-e2e)', include: 'scope' }
+
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule: { interval: weekly, day: monday, timezone: 'Asia/Colombo' }
+    labels: ['deps', 'github-actions']
+    commit-message: { prefix: 'chore(deps-ci)', include: 'scope' }
+
+  - package-ecosystem: docker
+    directory: '/src/Services/Identity/FreshCart.Identity.Api'
+    schedule: { interval: weekly, day: monday, timezone: 'Asia/Colombo' }
+    labels: ['deps', 'docker']
+    commit-message: { prefix: 'chore(deps-docker)', include: 'scope' }

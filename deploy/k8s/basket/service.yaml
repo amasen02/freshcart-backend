@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: basket
+  namespace: freshcart
+  labels: { app.kubernetes.io/name: basket }
+spec:
+  type: ClusterIP
+  ports:
+    - { name: http, port: 80, targetPort: 8080, protocol: TCP, appProtocol: http }
+  selector: { app.kubernetes.io/name: basket }

@@ -1,0 +1,114 @@
+# ---------------------------------------------------------------------------
+# Per-service CI/CD for the Catalog bounded context.
+# Same job graph as identity-ci.yml: build-test → container → deploy-dev →
+# deploy-staging → deploy-prod, parameterised for Catalog.
+# ---------------------------------------------------------------------------
+name: catalog-ci
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/Services/Catalog/**'
+      - 'src/BuildingBlocks/**'
+      - '.github/workflows/catalog-ci.yml'
+      - '.github/workflows/reusable-*.yml'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+      - 'global.json'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/Services/Catalog/**'
+      - 'src/BuildingBlocks/**'
+  workflow_dispatch:
+
+concurrency:
+  group: catalog-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: Build · Test · Quality
+    uses: ./.github/workflows/reusable-build-test.yml
+    with:
+      serviceName: catalog
+      projectPath: src/Services/Catalog/FreshCart.Catalog.Api/FreshCart.Catalog.Api.csproj
+      testProjectPath: src/Services/Catalog/FreshCart.Catalog.Tests/FreshCart.Catalog.Tests.csproj
+      sonarProjectKey: FreshCart_Catalog
+      sonarOrganization: freshcart
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  container:
+    name: Container · Scan · Sign · Push
+    needs: build-test
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/reusable-container.yml
+    with:
+      serviceName: catalog
+      dockerfilePath: src/Services/Catalog/FreshCart.Catalog.Api/Dockerfile
+      imageRepository: ${{ github.repository_owner }}/freshcart-catalog
+      acrName: freshcartacr
+    secrets:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+  deploy-dev:
+    name: Deploy → DEV
+    needs: container
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: freshcart-dev
+      url: https://catalog-dev.freshcart.local
+    uses: ./.github/workflows/reusable-helm-deploy.yml
+    with:
+      serviceName: catalog
+      chartPath: deploy/helm/catalog
+      valuesFile: deploy/helm/catalog/values-dev.yaml
+      imageTag: ${{ github.sha }}
+      resourceGroup: freshcart-dev
+      aksClusterName: freshcart-dev-aks
+    secrets:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+  deploy-staging:
+    name: Deploy → STAGING (1 approver)
+    needs: deploy-dev
+    environment:
+      name: freshcart-staging
+      url: https://catalog-staging.freshcart.local
+    uses: ./.github/workflows/reusable-helm-deploy.yml
+    with:
+      serviceName: catalog
+      chartPath: deploy/helm/catalog
+      valuesFile: deploy/helm/catalog/values-staging.yaml
+      imageTag: ${{ github.sha }}
+      resourceGroup: freshcart-staging
+      aksClusterName: freshcart-staging-aks
+    secrets:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+  deploy-prod:
+    name: Deploy → PROD (blue/green, 2 approvers)
+    needs: deploy-staging
+    environment:
+      name: freshcart-prod
+      url: https://catalog.freshcart.com
+    uses: ./.github/workflows/reusable-helm-deploy.yml
+    with:
+      serviceName: catalog
+      chartPath: deploy/helm/catalog
+      valuesFile: deploy/helm/catalog/values-prod.yaml
+      imageTag: ${{ github.sha }}
+      resourceGroup: freshcart-prod
+      aksClusterName: freshcart-prod-aks
+    secrets:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}

@@ -1,0 +1,30 @@
+# ---------------------------------------------------------------------------
+# Umbrella values: a single switch per subchart. Disable any service to exclude
+# it from the release; per-service tuning lives in each subchart's values files,
+# overridden here under the subchart's own key when needed.
+# ---------------------------------------------------------------------------
+
+identity:
+  enabled: true
+catalog:
+  enabled: true
+pricing:
+  enabled: true
+basket:
+  enabled: true
+ordering:
+  enabled: true
+inventory:
+  enabled: true
+payment:
+  enabled: true
+delivery:
+  enabled: true
+notification:
+  enabled: true
+customersupport:
+  enabled: true
+reviews:
+  enabled: true
+gateway:
+  enabled: true

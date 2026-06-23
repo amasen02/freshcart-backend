@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>FreshCart.Identity.Domain</RootNamespace>
+    <AssemblyName>FreshCart.Identity.Domain</AssemblyName>
+    <Description>FreshCart Identity domain layer. Pure business rules (users, roles, refresh tokens, audit events) with no infrastructure or framework dependencies.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Identity.Stores" />
+  </ItemGroup>
+
+</Project>

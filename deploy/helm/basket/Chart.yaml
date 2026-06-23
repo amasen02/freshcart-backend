@@ -1,0 +1,29 @@
+apiVersion: v2
+name: basket
+description: FreshCart Basket service: per-user basket on Redis with a transactional outbox.
+type: application
+
+# Bumped on every chart change (template, defaults). NOT the app version.
+version: 0.1.0
+
+appVersion: '0.1.0'
+
+home: https://github.com/amasen02/FreshCart
+sources:
+  - https://github.com/amasen02/FreshCart
+
+maintainers:
+  - name: Ama Senevirathne
+    email: amabandarasp@gmail.com
+
+keywords:
+  - freshcart
+  - basket
+  - redis
+  - outbox
+  - dotnet10
+  - aks
+
+annotations:
+  category: Application
+  licenses: MIT

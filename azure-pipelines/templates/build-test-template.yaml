@@ -1,0 +1,108 @@
+# ---------------------------------------------------------------------------
+# build-test-template.yaml
+#
+# Reusable template invoked by every per-service pipeline. Contracts:
+#
+#  Parameters:
+#    serviceName        — short folder name (catalog, basket, identity, …)
+#    projectPath        — relative path to the API csproj
+#    testProjectPath    — relative path to the Tests csproj (optional)
+#    sonarProjectKey    — SonarCloud project key (optional)
+#    sonarOrganization  — SonarCloud organization (optional)
+#
+# Output: NuGet-cached restore, Release build, test results with code coverage
+# published, SonarCloud analysis applied around the build, vulnerability scan,
+# and a self-contained publish artifact ready for the container template.
+# ---------------------------------------------------------------------------
+
+parameters:
+  - name: serviceName
+    type: string
+  - name: projectPath
+    type: string
+  - name: testProjectPath
+    type: string
+    default: ''
+  - name: sonarProjectKey
+    type: string
+    default: ''
+  - name: sonarOrganization
+    type: string
+    default: ''
+  - name: buildConfiguration
+    type: string
+    default: 'Release'
+
+steps:
+  - checkout: self
+    fetchDepth: 0
+    displayName: 'Checkout source'
+
+  - task: UseDotNet@2
+    displayName: 'Install .NET 10 SDK'
+    inputs:
+      packageType: 'sdk'
+      useGlobalJson: true
+
+  - task: Cache@2
+    displayName: 'Restore NuGet cache'
+    inputs:
+      key: 'nuget | "$(Agent.OS)" | **/Directory.Packages.props, **/*.csproj'
+      restoreKeys: |
+        nuget | "$(Agent.OS)"
+      path: '$(NUGET_PACKAGES)'
+
+  - script: dotnet restore "${{ parameters.projectPath }}" --locked-mode || dotnet restore "${{ parameters.projectPath }}"
+    displayName: 'Restore packages'
+
+  - ${{ if and(ne(parameters.sonarProjectKey, ''), ne(parameters.sonarOrganization, '')) }}:
+    - task: SonarCloudPrepare@2
+      displayName: 'Prepare SonarCloud analysis'
+      inputs:
+        SonarCloud: 'SonarCloud'
+        organization: '${{ parameters.sonarOrganization }}'
+        scannerMode: 'dotnet'
+        projectKey: '${{ parameters.sonarProjectKey }}'
+        projectName: 'FreshCart.${{ parameters.serviceName }}'
+
+  - script: dotnet build "${{ parameters.projectPath }}" --configuration ${{ parameters.buildConfiguration }} --no-restore
+    displayName: 'Build (Release)'
+
+  - ${{ if ne(parameters.testProjectPath, '') }}:
+    - script: dotnet test "${{ parameters.testProjectPath }}" --configuration ${{ parameters.buildConfiguration }} --no-build --collect:"XPlat Code Coverage" --logger trx --results-directory $(Agent.TempDirectory)/test-results
+      displayName: 'Run unit + integration tests'
+
+    - task: PublishTestResults@2
+      displayName: 'Publish test results'
+      condition: succeededOrFailed()
+      inputs:
+        testResultsFormat: 'VSTest'
+        testResultsFiles: '$(Agent.TempDirectory)/test-results/*.trx'
+        failTaskOnFailedTests: true
+
+    - task: PublishCodeCoverageResults@2
+      displayName: 'Publish code coverage'
+      condition: succeededOrFailed()
+      inputs:
+        summaryFileLocation: '$(Agent.TempDirectory)/test-results/**/coverage.cobertura.xml'
+
+  - script: dotnet list "${{ parameters.projectPath }}" package --vulnerable --include-transitive || true
+    displayName: 'Scan for vulnerable packages'
+
+  - ${{ if and(ne(parameters.sonarProjectKey, ''), ne(parameters.sonarOrganization, '')) }}:
+    - task: SonarCloudAnalyze@2
+      displayName: 'Run SonarCloud analysis'
+
+    - task: SonarCloudPublish@2
+      displayName: 'Publish SonarCloud quality gate'
+      inputs:
+        pollingTimeoutSec: '300'
+
+  - script: dotnet publish "${{ parameters.projectPath }}" --configuration ${{ parameters.buildConfiguration }} --no-build --output $(Build.ArtifactStagingDirectory)/publish /p:UseAppHost=false
+    displayName: 'Publish (self-contained=false)'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'Upload publish artifact'
+    inputs:
+      PathtoPublish: '$(Build.ArtifactStagingDirectory)/publish'
+      ArtifactName: '${{ parameters.serviceName }}-publish'

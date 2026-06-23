@@ -1,0 +1,92 @@
+<section class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">Sales dashboard</h1>
+    <div class="d-flex align-items-center gap-3">
+      <span class="d-inline-flex align-items-center gap-1 small text-body-secondary">
+        <span
+          class="rounded-circle fc-status-dot"
+          [class.bg-success]="isLive()"
+          [class.bg-secondary]="!isLive()"
+          aria-hidden="true"></span>
+        {{ isLive() ? 'Live' : 'Offline' }}
+      </span>
+      <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="isRefreshing()" (click)="refresh()">
+        @if (isRefreshing()) {
+          <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+        }
+        <i class="bi bi-arrow-clockwise me-1" aria-hidden="true"></i>Refresh
+      </button>
+    </div>
+  </div>
+
+  @if (isInitialLoad()) {
+    <fc-loading-spinner label="Loading dashboard" />
+  } @else if (error(); as loadError) {
+    <fc-empty-state icon="exclamation-triangle" heading="We could not load the dashboard"
+      [message]="loadError.detail" />
+  } @else if (data(); as dashboard) {
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-3 mb-4">
+      @for (tile of dashboard.overview.tiles; track tile.code) {
+        <div class="col">
+          <fc-kpi-card [metric]="tile" [currencyCode]="currencyCode" />
+        </div>
+      }
+    </div>
+
+    @defer (on viewport) {
+      <div class="row g-4 mb-4">
+        <div class="col-12 col-lg-8">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <h2 class="h5">Revenue trend</h2>
+              <fc-line-chart [series]="revenueSeries()" />
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-lg-4">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <h2 class="h5">Revenue by category</h2>
+              <fc-doughnut-chart [data]="categoryBreakdown()" />
+            </div>
+          </div>
+        </div>
+      </div>
+    } @placeholder {
+      <div class="mb-4"></div>
+    }
+
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h2 class="h5">Top products</h2>
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <caption class="visually-hidden">Best selling products for the period</caption>
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Product</th>
+                <th scope="col" class="text-end">Units</th>
+                <th scope="col" class="text-end">Revenue</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of dashboard.topProducts.rows; track row.entityId) {
+                <tr>
+                  <th scope="row" class="fw-normal">{{ row.rank }}</th>
+                  <td>{{ row.displayName }}</td>
+                  <td class="text-end">{{ row.secondaryCount }}</td>
+                  <td class="text-end">{{ row.metricValue | fcMoney: currencyCode }}</td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="4" class="text-center text-body-secondary py-3">No sales in this period.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  }
+</section>

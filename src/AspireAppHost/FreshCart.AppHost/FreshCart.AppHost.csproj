@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <Sdk Name="Aspire.AppHost.Sdk" Version="9.5.2" />
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <UserSecretsId>freshcart-app-host</UserSecretsId>
+    <Description>Local orchestration host. Boots every backing service and every microservice in one developer command.</Description>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- The orchestration host transitively references every service, so it inherits
+         the same NuGet restore advisories the services already accept: NU1904 is the
+         Marten 7.30.0 advisory carried by Catalog and Basket, and NU1608 is the
+         JasperFx/Pomelo/Roslyn version-constraint mismatch that only the combined
+         graph surfaces. Both move with the central package pins owned by infra. -->
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1608;NU1904</WarningsNotAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.AppHost" />
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" />
+    <PackageReference Include="Aspire.Hosting.SqlServer" />
+    <PackageReference Include="Aspire.Hosting.Redis" />
+    <PackageReference Include="Aspire.Hosting.RabbitMQ" />
+    <PackageReference Include="Aspire.Hosting.MongoDB" />
+    <PackageReference Include="Aspire.Hosting.MySql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Services\Identity\FreshCart.Identity.Api\FreshCart.Identity.Api.csproj" />
+    <ProjectReference Include="..\..\Services\Catalog\FreshCart.Catalog.Api\FreshCart.Catalog.Api.csproj" />
+    <ProjectReference Include="..\..\Services\Pricing\FreshCart.Pricing.Grpc\FreshCart.Pricing.Grpc.csproj" />
+    <ProjectReference Include="..\..\Services\Basket\FreshCart.Basket.Api\FreshCart.Basket.Api.csproj" />
+    <ProjectReference Include="..\..\Services\Ordering\FreshCart.Ordering.Api\FreshCart.Ordering.Api.csproj" />
+    <ProjectReference Include="..\..\Services\Inventory\FreshCart.Inventory.Api\FreshCart.Inventory.Api.csproj" />
+    <ProjectReference Include="..\..\Services\Payment\FreshCart.Payment.Api\FreshCart.Payment.Api.csproj" />
+    <ProjectReference Include="..\..\Services\Delivery\FreshCart.Delivery.Api\FreshCart.Delivery.Api.csproj" />
+    <ProjectReference Include="..\..\Services\Notification\FreshCart.Notification.Api\FreshCart.Notification.Api.csproj" />
+    <ProjectReference Include="..\..\Services\Reporting\FreshCart.Reporting.Api\FreshCart.Reporting.Api.csproj" />
+    <ProjectReference Include="..\..\Services\CustomerSupport\FreshCart.CustomerSupport.Api\FreshCart.CustomerSupport.Api.csproj" />
+    <ProjectReference Include="..\..\Services\Reviews\FreshCart.Reviews.Api\FreshCart.Reviews.Api.csproj" />
+    <ProjectReference Include="..\..\ApiGateways\FreshCart.Gateway.Yarp\FreshCart.Gateway.Yarp.csproj" />
+  </ItemGroup>
+
+</Project>

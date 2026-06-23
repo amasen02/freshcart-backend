@@ -1,0 +1,9 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: identity
+  namespace: freshcart
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: { app.kubernetes.io/name: identity }

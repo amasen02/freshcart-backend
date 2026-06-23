@@ -1,0 +1,34 @@
+# syntax=docker/dockerfile:1.7
+# ---------------------------------------------------------------------------
+# Multi-stage build for FreshCart.Basket.Api
+#  - build stage: SDK image, full restore + publish
+#  - runtime stage: chiselled ASP.NET runtime, non-root user
+# ---------------------------------------------------------------------------
+
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+ARG BUILD_CONFIGURATION=Release
+WORKDIR /src
+
+# Restore: copy only csproj + central package files first to keep layer cache hot
+COPY ["global.json", "Directory.Build.props", "Directory.Packages.props", "./"]
+COPY ["src/Services/Basket/FreshCart.Basket.Api/FreshCart.Basket.Api.csproj", "src/Services/Basket/FreshCart.Basket.Api/"]
+COPY ["src/BuildingBlocks/FreshCart.BuildingBlocks/FreshCart.BuildingBlocks.csproj", "src/BuildingBlocks/FreshCart.BuildingBlocks/"]
+COPY ["src/BuildingBlocks/FreshCart.BuildingBlocks.Messaging/FreshCart.BuildingBlocks.Messaging.csproj", "src/BuildingBlocks/FreshCart.BuildingBlocks.Messaging/"]
+COPY ["src/BuildingBlocks/FreshCart.ServiceDefaults/FreshCart.ServiceDefaults.csproj", "src/BuildingBlocks/FreshCart.ServiceDefaults/"]
+RUN dotnet restore "src/Services/Basket/FreshCart.Basket.Api/FreshCart.Basket.Api.csproj"
+
+COPY . .
+WORKDIR /src/src/Services/Basket/FreshCart.Basket.Api
+RUN dotnet publish "FreshCart.Basket.Api.csproj" -c "$BUILD_CONFIGURATION" -o /app/publish --no-restore /p:UseAppHost=false
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled AS runtime
+WORKDIR /app
+EXPOSE 8080
+
+# Non-root user is the default in the chiselled image.
+COPY --from=build /app/publish .
+
+ENV ASPNETCORE_HTTP_PORTS=8080 \
+    DOTNET_RUNNING_IN_CONTAINER=true
+
+ENTRYPOINT ["dotnet", "FreshCart.Basket.Api.dll"]

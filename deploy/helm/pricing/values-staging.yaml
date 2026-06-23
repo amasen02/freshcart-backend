@@ -1,0 +1,33 @@
+replicaCount: 2
+
+image:
+  pullPolicy: IfNotPresent
+
+ingress:
+  hosts:
+    - host: pricing.staging.freshcart.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: pricing-tls-staging
+      hosts: [pricing.staging.freshcart.local]
+
+resources:
+  requests: { cpu: '100m', memory: '256Mi' }
+  limits:   { cpu: '500m', memory: '512Mi' }
+
+autoscaling:
+  minReplicas: 2
+  maxReplicas: 6
+
+config:
+  ASPNETCORE_ENVIRONMENT: Staging
+
+# Pricing has no network secrets (its datastore is the embedded SQLite file), so
+# the Key Vault CSI driver stays off in every environment.
+keyVault:
+  enabled: false
+
+serviceMonitor:
+  enabled: true

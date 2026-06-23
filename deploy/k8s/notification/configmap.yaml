@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: notification-config
+  namespace: freshcart
+data:
+  ASPNETCORE_ENVIRONMENT: 'Production'
+  ASPNETCORE_HTTP_PORTS: '8080'
+  OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector.observability.svc.cluster.local:4317'
+  OTEL_SERVICE_NAME: 'freshcart-notification'
+  Cors__AllowedOrigins__0: 'https://www.freshcart.local'
+  Jwt__Issuer: 'https://identity.freshcart.local'
+  Jwt__Audience: 'https://freshcart.local'

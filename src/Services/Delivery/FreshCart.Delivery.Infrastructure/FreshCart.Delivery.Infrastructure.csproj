@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>FreshCart.Delivery.Infrastructure</RootNamespace>
+    <AssemblyName>FreshCart.Delivery.Infrastructure</AssemblyName>
+    <Description>Delivery infrastructure adapters: MongoDB repositories with a 2dsphere geospatial index, the deterministic geocoding stand-in, the index initializer and the Development-only seeders. Every type here implements an application port; swapping any adapter touches no domain or application code.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MongoDB.Driver" />
+    <PackageReference Include="MassTransit" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FreshCart.Delivery.Application\FreshCart.Delivery.Application.csproj" />
+  </ItemGroup>
+
+</Project>

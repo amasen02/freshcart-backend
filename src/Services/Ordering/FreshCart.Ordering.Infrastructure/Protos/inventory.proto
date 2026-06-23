@@ -1,0 +1,33 @@
+syntax = "proto3";
+option csharp_namespace = "FreshCart.Inventory.Api.Protos";
+package inventory;
+
+service InventoryService {
+  rpc ReserveStock (ReserveStockRequest) returns (ReserveStockResponse);
+  rpc ReleaseReservation (ReleaseReservationRequest) returns (ReleaseReservationResponse);
+}
+
+message ReserveStockRequest {
+  string order_id = 1;
+  repeated ReservationLine lines = 2;
+}
+
+message ReservationLine {
+  string product_sku = 1;
+  int32 quantity = 2;
+}
+
+message ReserveStockResponse {
+  bool succeeded = 1;
+  string reservation_id = 2;
+  string failure_reason = 3;
+  repeated string unavailable_skus = 4;
+}
+
+message ReleaseReservationRequest {
+  string order_id = 1;
+}
+
+message ReleaseReservationResponse {
+  bool released = 1;
+}

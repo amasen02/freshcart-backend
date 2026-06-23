@@ -1,0 +1,35 @@
+replicaCount: 1
+
+image:
+  pullPolicy: Always
+
+ingress:
+  hosts:
+    - host: customersupport.dev.freshcart.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: customersupport-tls-dev
+      hosts: [customersupport.dev.freshcart.local]
+
+resources:
+  requests: { cpu: '50m', memory: '128Mi' }
+  limits:   { cpu: '300m', memory: '384Mi' }
+
+autoscaling:
+  enabled: false
+
+podDisruptionBudget:
+  enabled: false
+
+config:
+  ASPNETCORE_ENVIRONMENT: Development
+
+secrets:
+  literal:
+    ConnectionStrings__supportchatdb: 'mongodb://freshcart-dev-cosmos.mongo.cosmos.azure.com:10255/freshcart_support?ssl=true&retrywrites=false'
+    ConnectionStrings__cache: 'freshcart-dev-redis.redis.cache.windows.net:6380,ssl=True,abortConnect=False'
+
+serviceMonitor:
+  enabled: true

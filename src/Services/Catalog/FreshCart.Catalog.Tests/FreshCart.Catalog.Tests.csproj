@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>FreshCart.Catalog.Tests</RootNamespace>
+    <AssemblyName>FreshCart.Catalog.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- NU1904: Marten is pinned at 7.30.0 repo-wide and GHSA-vmw2-qwm8-x84c flags that version.
+         NU1608: central transitive pinning resolves Microsoft.Extensions.Logging.Abstractions above
+         the upper bound declared by Marten's JasperFx.RuntimeCompiler dependency.
+         Both originate in Directory.Packages.props (owned by the infra agent); keep them visible as
+         warnings instead of failing this project's build. -->
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1904;NU1608</WarningsNotAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="coverlet.collector" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FreshCart.Catalog.Api\FreshCart.Catalog.Api.csproj" />
+  </ItemGroup>
+
+</Project>

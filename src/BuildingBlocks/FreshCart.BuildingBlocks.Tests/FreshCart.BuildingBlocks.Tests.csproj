@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>FreshCart.BuildingBlocks.Tests</RootNamespace>
+    <AssemblyName>FreshCart.BuildingBlocks.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="coverlet.collector" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FreshCart.BuildingBlocks\FreshCart.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\FreshCart.BuildingBlocks.Messaging\FreshCart.BuildingBlocks.Messaging.csproj" />
+    <ProjectReference Include="..\FreshCart.ServiceDefaults\FreshCart.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+</Project>

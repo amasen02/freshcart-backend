@@ -1,0 +1,114 @@
+# ---------------------------------------------------------------------------
+# Per-service CI/CD for the Notification bounded context.
+# Same job graph as identity-ci.yml: build-test → container → deploy-dev →
+# deploy-staging → deploy-prod, parameterised for Notification.
+# ---------------------------------------------------------------------------
+name: notification-ci
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/Services/Notification/**'
+      - 'src/BuildingBlocks/**'
+      - '.github/workflows/notification-ci.yml'
+      - '.github/workflows/reusable-*.yml'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+      - 'global.json'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/Services/Notification/**'
+      - 'src/BuildingBlocks/**'
+  workflow_dispatch:
+
+concurrency:
+  group: notification-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: Build · Test · Quality
+    uses: ./.github/workflows/reusable-build-test.yml
+    with:
+      serviceName: notification
+      projectPath: src/Services/Notification/FreshCart.Notification.Api/FreshCart.Notification.Api.csproj
+      testProjectPath: src/Services/Notification/FreshCart.Notification.Tests/FreshCart.Notification.Tests.csproj
+      sonarProjectKey: FreshCart_Notification
+      sonarOrganization: freshcart
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  container:
+    name: Container · Scan · Sign · Push
+    needs: build-test
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/reusable-container.yml
+    with:
+      serviceName: notification
+      dockerfilePath: src/Services/Notification/FreshCart.Notification.Api/Dockerfile
+      imageRepository: ${{ github.repository_owner }}/freshcart-notification
+      acrName: freshcartacr
+    secrets:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+  deploy-dev:
+    name: Deploy → DEV
+    needs: container
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: freshcart-dev
+      url: https://notification-dev.freshcart.local
+    uses: ./.github/workflows/reusable-helm-deploy.yml
+    with:
+      serviceName: notification
+      chartPath: deploy/helm/notification
+      valuesFile: deploy/helm/notification/values-dev.yaml
+      imageTag: ${{ github.sha }}
+      resourceGroup: freshcart-dev
+      aksClusterName: freshcart-dev-aks
+    secrets:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+  deploy-staging:
+    name: Deploy → STAGING (1 approver)
+    needs: deploy-dev
+    environment:
+      name: freshcart-staging
+      url: https://notification-staging.freshcart.local
+    uses: ./.github/workflows/reusable-helm-deploy.yml
+    with:
+      serviceName: notification
+      chartPath: deploy/helm/notification
+      valuesFile: deploy/helm/notification/values-staging.yaml
+      imageTag: ${{ github.sha }}
+      resourceGroup: freshcart-staging
+      aksClusterName: freshcart-staging-aks
+    secrets:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+  deploy-prod:
+    name: Deploy → PROD (blue/green, 2 approvers)
+    needs: deploy-staging
+    environment:
+      name: freshcart-prod
+      url: https://notification.freshcart.com
+    uses: ./.github/workflows/reusable-helm-deploy.yml
+    with:
+      serviceName: notification
+      chartPath: deploy/helm/notification
+      valuesFile: deploy/helm/notification/values-prod.yaml
+      imageTag: ${{ github.sha }}
+      resourceGroup: freshcart-prod
+      aksClusterName: freshcart-prod-aks
+    secrets:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}

@@ -1,0 +1,18 @@
+<div class="toast-container position-fixed bottom-0 end-0 p-3 fc-toast-host" aria-live="polite" aria-atomic="true">
+  @for (toast of toastService.toasts(); track toast.id) {
+    <ngb-toast
+      [class]="kindClass(toast.kind)"
+      [autohide]="true"
+      [delay]="toast.autohideMs"
+      (hidden)="toastService.dismiss(toast.id)">
+      <div class="d-flex align-items-center justify-content-between gap-2">
+        <span>{{ toast.text }}</span>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          aria-label="Dismiss notification"
+          (click)="toastService.dismiss(toast.id)"></button>
+      </div>
+    </ngb-toast>
+  }
+</div>

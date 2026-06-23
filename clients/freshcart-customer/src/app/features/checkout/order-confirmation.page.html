@@ -1,0 +1,52 @@
+<section class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-12 col-lg-8">
+      <div class="text-center mb-4">
+        <i class="bi bi-check-circle-fill text-success display-3" aria-hidden="true"></i>
+        <h1 class="h3 mt-3">Thank you for your order</h1>
+        <p class="text-body-secondary">
+          Order reference <span class="fw-semibold">{{ orderId() }}</span>
+        </p>
+      </div>
+
+      @if (isAwaitingFirstLoad()) {
+        <fc-loading-spinner label="Confirming your order" />
+      } @else if (loadError(); as error) {
+        <div class="alert alert-warning" role="alert">
+          {{ error.detail }} You can review it in
+          <a [routerLink]="['/orders', orderId()]" class="alert-link">your orders</a>.
+        </div>
+      } @else if (order(); as orderDetail) {
+        <div class="card shadow-sm mb-4">
+          <div class="card-body">
+            <h2 class="h5 mb-4">Order status</h2>
+            <fc-order-status-timeline [status]="orderDetail.status" />
+          </div>
+        </div>
+
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <h2 class="h5">Order summary</h2>
+            <ul class="list-group list-group-flush mb-3">
+              @for (line of orderDetail.lines; track line.productId) {
+                <li class="list-group-item d-flex justify-content-between px-0">
+                  <span>{{ line.productName }} &times; {{ line.quantity }}</span>
+                  <span>{{ line.lineTotal | fcMoney: orderDetail.currencyCode }}</span>
+                </li>
+              }
+            </ul>
+            <div class="d-flex justify-content-between fw-semibold">
+              <span>Total</span>
+              <span>{{ orderDetail.grandTotal | fcMoney: orderDetail.currencyCode }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="text-center mt-4">
+          <a [routerLink]="['/orders', orderDetail.orderId]" class="btn btn-outline-primary me-2">View order</a>
+          <a routerLink="/catalog" class="btn btn-primary">Continue shopping</a>
+        </div>
+      }
+    </div>
+  </div>
+</section>

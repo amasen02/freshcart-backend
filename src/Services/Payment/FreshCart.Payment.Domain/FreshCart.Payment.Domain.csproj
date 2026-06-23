@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>FreshCart.Payment.Domain</RootNamespace>
+    <AssemblyName>FreshCart.Payment.Domain</AssemblyName>
+    <Description>FreshCart Payment domain layer. Event-sourced payment aggregate and its event records; the immutable event stream is the system of record for compliance.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\FreshCart.BuildingBlocks\FreshCart.BuildingBlocks.csproj" />
+  </ItemGroup>
+
+</Project>

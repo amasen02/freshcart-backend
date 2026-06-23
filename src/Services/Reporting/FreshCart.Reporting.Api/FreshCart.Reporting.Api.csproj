@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>FreshCart.Reporting.Api</RootNamespace>
+    <AssemblyName>FreshCart.Reporting.Api</AssemblyName>
+    <UserSecretsId>freshcart-reporting-api</UserSecretsId>
+    <Description>FreshCart Reporting HTTP host. Exposes dashboards (JSON), invoices (PDF) and exports (Excel).</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Carter" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="AspNetCore.HealthChecks.UI.Client" />
+    <PackageReference Include="AspNetCore.HealthChecks.MySql" />
+    <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="Serilog.Sinks.Console" />
+    <PackageReference Include="Serilog.Enrichers.Environment" />
+    <PackageReference Include="Serilog.Enrichers.Process" />
+    <PackageReference Include="Serilog.Enrichers.Thread" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FreshCart.Reporting.Application\FreshCart.Reporting.Application.csproj" />
+    <ProjectReference Include="..\FreshCart.Reporting.Infrastructure\FreshCart.Reporting.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\FreshCart.BuildingBlocks\FreshCart.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\FreshCart.ServiceDefaults\FreshCart.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+</Project>

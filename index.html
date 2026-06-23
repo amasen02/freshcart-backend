@@ -1,0 +1,2056 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FreshCart Architecture Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet" />
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--bg2:#1a1d27;--bg3:#242838;--bg4:#2e3347;
+  --text:#e4e6f0;--text2:#a0a4b8;--text3:#6b7094;
+  --accent:#4f8cff;--accent2:#6c5ce7;
+  --border:#2e3347;--border2:#3d4260;
+  --red:#e94560;--green:#27ae60;--blue:#3498db;--purple:#9b59b6;
+  --orange:#f39c12;--teal:#1abc9c;--dorange:#e67e22;--lgreen:#2ecc71;
+  --dblue:#34495e;--bred:#e74c3c;--dpurple:#8e44ad;--dteal:#16a085;
+  --azure:#0078d4;--sql:#cc2927;--pg:#336791;--mongo:#4db33d;
+  --redis:#d63031;--mysql:#00758f;--rabbit:#ff6600;--cosmos:#3398db;
+  --font:Inter,system-ui,sans-serif;--mono:'JetBrains Mono',monospace;
+  --radius:8px;--radius2:12px;--shadow:0 4px 24px rgba(0,0,0,.4);
+}
+html{font-size:15px;scroll-behavior:smooth}
+body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:1.7;min-height:100vh}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* Header */
+.header{background:linear-gradient(135deg,#1a1d27,#242838);border-bottom:1px solid var(--border);padding:1.2rem 2rem;display:flex;align-items:center;gap:1rem;position:sticky;top:0;z-index:100;backdrop-filter:blur(12px)}
+.header h1{font-size:1.4rem;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.header .subtitle{color:var(--text2);font-size:.85rem;margin-left:auto}
+.logo{width:40px;height:40px;border-radius:var(--radius);background:linear-gradient(135deg,#27ae60,#1abc9c);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1rem;color:#fff;letter-spacing:-.5px}
+
+/* Tabs */
+.tab-bar{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);overflow-x:auto;padding:0 1rem;position:sticky;top:73px;z-index:90}
+.tab-btn{padding:.85rem 1.5rem;background:none;border:none;color:var(--text2);font-family:var(--font);font-size:.9rem;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap}
+.tab-btn:hover{color:var(--text);background:var(--bg3)}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(79,140,255,.06)}
+.tab-content{display:none;padding:2rem;max-width:1400px;margin:0 auto}
+.tab-content.active{display:block}
+
+/* Sub-tabs */
+.sub-tab-bar{display:flex;flex-wrap:wrap;gap:.4rem;background:var(--bg3);border-radius:var(--radius2);padding:.5rem;margin-bottom:1.5rem}
+.sub-tab-btn{padding:.5rem 1rem;background:none;border:none;color:var(--text2);font-family:var(--font);font-size:.82rem;font-weight:500;cursor:pointer;border-radius:var(--radius);transition:all .2s}
+.sub-tab-btn:hover{background:var(--bg4);color:var(--text)}
+.sub-tab-btn.active{background:var(--accent);color:#fff}
+.sub-content{display:none}
+.sub-content.active{display:block}
+
+/* Cards */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius2);padding:1.5rem;margin-bottom:1.5rem}
+.card h2{font-size:1.3rem;margin-bottom:1rem;color:var(--text)}
+.card h3{font-size:1.1rem;margin-bottom:.8rem;color:var(--text);margin-top:1rem}
+.card h4{font-size:.98rem;margin-bottom:.5rem;color:var(--text);margin-top:.8rem}
+.card p{color:var(--text2);margin-bottom:.8rem}
+.card ul,.card ol{color:var(--text2);margin-left:1.2rem;margin-bottom:.8rem}
+.card li{margin-bottom:.3rem}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem;margin-bottom:1.5rem}
+.mini-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:1.2rem;transition:transform .2s,border-color .2s}
+.mini-card:hover{transform:translateY(-2px);border-color:var(--accent)}
+.mini-card h4{font-size:.95rem;margin-bottom:.5rem;margin-top:0;color:var(--text)}
+.mini-card p{font-size:.85rem;color:var(--text2);margin:0}
+.badge{display:inline-block;padding:.2rem .6rem;border-radius:4px;font-size:.72rem;font-weight:600;margin-right:.3rem;margin-bottom:.3rem;font-family:var(--mono)}
+.badge-blue{background:rgba(79,140,255,.15);color:#7da7ff;border:1px solid rgba(79,140,255,.3)}
+.badge-green{background:rgba(39,174,96,.15);color:#3ed080;border:1px solid rgba(39,174,96,.3)}
+.badge-orange{background:rgba(243,156,18,.15);color:#f5b54a;border:1px solid rgba(243,156,18,.3)}
+.badge-red{background:rgba(233,69,96,.15);color:#ff7b8e;border:1px solid rgba(233,69,96,.3)}
+.badge-purple{background:rgba(155,89,182,.15);color:#bd7fd8;border:1px solid rgba(155,89,182,.3)}
+.badge-teal{background:rgba(26,188,156,.15);color:#4cd3b7;border:1px solid rgba(26,188,156,.3)}
+.badge-grey{background:rgba(107,112,148,.18);color:#a8acc4;border:1px solid rgba(107,112,148,.35)}
+
+/* Tables */
+.tbl-wrap{overflow-x:auto;margin-bottom:1.5rem}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th{background:var(--bg3);color:var(--text);font-weight:600;text-align:left;padding:.7rem .8rem;border-bottom:2px solid var(--border2)}
+td{padding:.6rem .8rem;border-bottom:1px solid var(--border);color:var(--text2);vertical-align:top}
+tr:hover td{background:rgba(79,140,255,.03)}
+code{font-family:var(--mono);background:var(--bg3);padding:.15rem .4rem;border-radius:4px;font-size:.83rem;color:var(--accent)}
+pre{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;overflow-x:auto;font-family:var(--mono);font-size:.83rem;line-height:1.6;margin-bottom:1rem;color:var(--text2)}
+pre code{background:none;padding:0;color:var(--text2)}
+
+/* Animated flow */
+.af{background:linear-gradient(135deg,var(--bg2),var(--bg3));border:1px solid var(--border);border-radius:var(--radius2);padding:2rem;margin-bottom:1.5rem;position:relative;overflow:hidden;min-height:120px}
+.af-title{text-align:center;font-weight:600;margin-bottom:1.5rem;color:var(--text);font-size:1rem}
+.af-row{display:flex;align-items:center;justify-content:center;gap:0;flex-wrap:wrap;margin-bottom:1rem}
+.af-n{padding:.6rem 1rem;border:2px solid var(--border);border-radius:var(--radius);font-size:.82rem;font-weight:500;color:var(--text3);opacity:.35;transition:all .5s;text-align:center;min-width:120px;background:var(--bg);position:relative}
+.af-n .sub{font-size:.68rem;color:var(--text3);margin-top:.15rem;font-weight:400;font-family:var(--mono)}
+.af-n.on{opacity:1;color:#fff}
+.af-arr{color:var(--text3);font-size:1.3rem;padding:0 .3rem;opacity:.3;transition:opacity .5s;font-weight:bold}
+.af-arr.on{opacity:1;color:var(--accent)}
+.af-arr-down{text-align:center;font-size:1.3rem;color:var(--text3);opacity:.3;transition:opacity .5s;padding:.3rem 0;font-weight:bold}
+.af-arr-down.on{opacity:1;color:var(--accent)}
+.af-label{font-size:.72rem;color:var(--text3);text-align:center;margin-top:.2rem;font-family:var(--mono)}
+
+/* Color variants for nodes */
+.n-browser{border-color:#ddd!important;color:#ddd!important}
+.n-browser.on{background:rgba(255,255,255,.08);box-shadow:0 0 22px rgba(255,255,255,.18)}
+.n-azure{border-color:var(--azure)!important;color:#42a3f5!important}
+.n-azure.on{background:rgba(0,120,212,.18);box-shadow:0 0 22px rgba(0,120,212,.4)}
+.n-yarp{border-color:var(--accent)!important;color:#7da7ff!important}
+.n-yarp.on{background:rgba(79,140,255,.18);box-shadow:0 0 22px rgba(79,140,255,.45)}
+.n-id{border-color:var(--red)!important;color:#ff7b8e!important}
+.n-id.on{background:rgba(233,69,96,.18);box-shadow:0 0 22px rgba(233,69,96,.45)}
+.n-cat{border-color:var(--green)!important;color:#3ed080!important}
+.n-cat.on{background:rgba(39,174,96,.18);box-shadow:0 0 22px rgba(39,174,96,.45)}
+.n-pri{border-color:var(--orange)!important;color:#f5b54a!important}
+.n-pri.on{background:rgba(243,156,18,.18);box-shadow:0 0 22px rgba(243,156,18,.45)}
+.n-bsk{border-color:var(--purple)!important;color:#bd7fd8!important}
+.n-bsk.on{background:rgba(155,89,182,.18);box-shadow:0 0 22px rgba(155,89,182,.45)}
+.n-ord{border-color:var(--blue)!important;color:#5db4e8!important}
+.n-ord.on{background:rgba(52,152,219,.18);box-shadow:0 0 22px rgba(52,152,219,.45)}
+.n-inv{border-color:var(--teal)!important;color:#4cd3b7!important}
+.n-inv.on{background:rgba(26,188,156,.18);box-shadow:0 0 22px rgba(26,188,156,.45)}
+.n-pay{border-color:var(--dorange)!important;color:#eb9b59!important}
+.n-pay.on{background:rgba(230,126,34,.18);box-shadow:0 0 22px rgba(230,126,34,.45)}
+.n-del{border-color:var(--lgreen)!important;color:#5cd88c!important}
+.n-del.on{background:rgba(46,204,113,.18);box-shadow:0 0 22px rgba(46,204,113,.45)}
+.n-not{border-color:var(--dpurple)!important;color:#b378d6!important}
+.n-not.on{background:rgba(142,68,173,.18);box-shadow:0 0 22px rgba(142,68,173,.45)}
+.n-sup{border-color:var(--bred)!important;color:#ee8170!important}
+.n-sup.on{background:rgba(231,76,60,.18);box-shadow:0 0 22px rgba(231,76,60,.45)}
+.n-rev{border-color:var(--dteal)!important;color:#4dbfa6!important}
+.n-rev.on{background:rgba(22,160,133,.18);box-shadow:0 0 22px rgba(22,160,133,.45)}
+.n-rep{border-color:var(--dblue)!important;color:#7d99b8!important}
+.n-rep.on{background:rgba(52,73,94,.18);box-shadow:0 0 22px rgba(52,73,94,.45)}
+.n-sql{border-color:var(--sql)!important;color:#e85b5a!important}
+.n-sql.on{background:rgba(204,41,39,.18);box-shadow:0 0 22px rgba(204,41,39,.45)}
+.n-pg{border-color:var(--pg)!important;color:#5993c4!important}
+.n-pg.on{background:rgba(51,103,145,.18);box-shadow:0 0 22px rgba(51,103,145,.45)}
+.n-mongo{border-color:var(--mongo)!important;color:#73c763!important}
+.n-mongo.on{background:rgba(77,179,61,.18);box-shadow:0 0 22px rgba(77,179,61,.45)}
+.n-redis{border-color:var(--redis)!important;color:#ee5a5b!important}
+.n-redis.on{background:rgba(214,48,49,.18);box-shadow:0 0 22px rgba(214,48,49,.45)}
+.n-mysql{border-color:var(--mysql)!important;color:#3aa3b8!important}
+.n-mysql.on{background:rgba(0,117,143,.18);box-shadow:0 0 22px rgba(0,117,143,.45)}
+.n-rabbit{border-color:var(--rabbit)!important;color:#ff8533!important}
+.n-rabbit.on{background:rgba(255,102,0,.18);box-shadow:0 0 22px rgba(255,102,0,.45)}
+.n-cosmos{border-color:var(--cosmos)!important;color:#5fb6e8!important}
+.n-cosmos.on{background:rgba(51,152,219,.18);box-shadow:0 0 22px rgba(51,152,219,.45)}
+.n-ci{border-color:#5d9cec!important;color:#7eb2f0!important}
+.n-ci.on{background:rgba(93,156,236,.18);box-shadow:0 0 22px rgba(93,156,236,.45)}
+
+/* Trees + lists */
+.tree{font-family:var(--mono);font-size:.83rem;line-height:1.75;color:var(--text2)}
+.tree .dir{color:var(--accent)}
+.tree .file{color:var(--text3)}
+.tree .comment{color:var(--orange);font-style:italic}
+.steps{counter-reset:step;list-style:none;margin-left:0}
+.steps li{position:relative;padding-left:2.5rem;margin-bottom:1rem;color:var(--text2)}
+.steps li::before{counter-increment:step;content:counter(step);position:absolute;left:0;width:1.8rem;height:1.8rem;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:600}
+.checklist{list-style:none;margin-left:0!important}
+.checklist li{padding-left:1.6rem;position:relative;margin-bottom:.45rem;color:var(--text2)}
+.checklist li::before{content:'✓';position:absolute;left:0;top:0;color:var(--green);font-weight:bold}
+.info-box{border-left:3px solid var(--accent);background:rgba(79,140,255,.06);padding:1rem 1.2rem;border-radius:0 var(--radius) var(--radius) 0;margin-bottom:1rem;font-size:.9rem;color:var(--text2)}
+.warn-box{border-left:3px solid var(--orange);background:rgba(243,156,18,.06);padding:1rem 1.2rem;border-radius:0 var(--radius) var(--radius) 0;margin-bottom:1rem;font-size:.9rem;color:var(--text2)}
+.danger-box{border-left:3px solid var(--red);background:rgba(233,69,96,.06);padding:1rem 1.2rem;border-radius:0 var(--radius) var(--radius) 0;margin-bottom:1rem;font-size:.9rem;color:var(--text2)}
+.success-box{border-left:3px solid var(--green);background:rgba(39,174,96,.06);padding:1rem 1.2rem;border-radius:0 var(--radius) var(--radius) 0;margin-bottom:1rem;font-size:.9rem;color:var(--text2)}
+
+/* Section header banner */
+.hero{background:linear-gradient(135deg,rgba(79,140,255,.12),rgba(108,92,231,.08));border:1px solid var(--border);border-radius:var(--radius2);padding:1.8rem 2rem;margin-bottom:1.5rem}
+.hero h2{background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:.6rem}
+.hero p{margin-bottom:0}
+
+/* Stat grid */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-bottom:1.5rem}
+.stat{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;text-align:center}
+.stat .num{font-size:1.6rem;font-weight:700;color:var(--accent);font-family:var(--mono)}
+.stat .lbl{font-size:.78rem;color:var(--text3);margin-top:.3rem;text-transform:uppercase;letter-spacing:.05em}
+
+/* Service card */
+.svc-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:1.3rem;margin-bottom:1rem;border-left:4px solid var(--accent)}
+.svc-card h3{margin-top:0;display:flex;align-items:center;gap:.6rem}
+.svc-card .meta{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.8rem;margin-top:.4rem}
+.svc-card .label{font-weight:600;color:var(--text);font-size:.85rem;margin-top:.6rem;margin-bottom:.2rem}
+.svc-card .v{color:var(--text2);font-size:.88rem}
+.svc-clean{border-left-color:var(--red)}
+.svc-vslice{border-left-color:var(--green)}
+.svc-layered{border-left-color:var(--blue)}
+.svc-hex{border-left-color:var(--lgreen)}
+.svc-grpc{border-left-color:var(--orange)}
+.svc-es{border-left-color:var(--dorange)}
+.svc-pipes{border-left-color:var(--purple)}
+.svc-ws{border-left-color:var(--bred)}
+.svc-gw{border-left-color:var(--accent)}
+.svc-mm{border-left-color:var(--dpurple)}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:4px}
+
+@media (max-width:768px){
+  .tab-btn{padding:.6rem .8rem;font-size:.82rem}
+  .tab-content{padding:1rem}
+  .card{padding:1rem}
+  .af{padding:1rem}
+  .af-n{padding:.4rem .6rem;font-size:.72rem;min-width:80px}
+  .card-grid{grid-template-columns:1fr}
+  .header{padding:.8rem 1rem}
+  .header h1{font-size:1.1rem}
+  .header .subtitle{display:none}
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">FC</div>
+  <h1>FreshCart Architecture Guide</h1>
+  <span class="subtitle">Online Supermarket &mdash; .NET 10 + Angular 20 + Azure AKS</span>
+</header>
+
+<nav class="tab-bar">
+  <button class="tab-btn active" data-tab="overview">Overview</button>
+  <button class="tab-btn" data-tab="domain">Domain &amp; Bounded Contexts</button>
+  <button class="tab-btn" data-tab="services">12 Microservices</button>
+  <button class="tab-btn" data-tab="patterns">Patterns &amp; Principles</button>
+  <button class="tab-btn" data-tab="flows">Animated Flows</button>
+  <button class="tab-btn" data-tab="security">Security &amp; OWASP</button>
+  <button class="tab-btn" data-tab="devguide">Developer Guide</button>
+  <button class="tab-btn" data-tab="devops">DevOps &amp; Azure</button>
+  <button class="tab-btn" data-tab="testing">Testing Strategy</button>
+  <button class="tab-btn" data-tab="reporting">Reporting &amp; Invoices</button>
+  <button class="tab-btn" data-tab="frontend">Angular Frontend</button>
+</nav>
+
+<!-- ================================================================ -->
+<!-- TAB 1: OVERVIEW                                                  -->
+<!-- ================================================================ -->
+<div id="tab-overview" class="tab-content active">
+
+  <div class="hero">
+    <h2>FreshCart — production-grade online supermarket platform</h2>
+    <p>Twelve bounded contexts. Each implemented in a different architectural style on purpose, so the
+    repository is a teaching artifact that demonstrates every pattern, every cross-cutting concern, and
+    every Azure capability that a Senior / Tech Lead / Architect interview would ask about — anchored to
+    running code, not slides.</p>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- TRY IT NOW — demo URLs + seeded credentials. Sits at the very top so a -->
+  <!-- reviewer can click and try the system within thirty seconds.           -->
+  <!-- ===================================================================== -->
+  <div class="card" style="border:2px solid var(--green); background:linear-gradient(135deg,rgba(39,174,96,.08),rgba(26,188,156,.05));">
+    <h2 style="display:flex;align-items:center;gap:.5rem;">
+      <span style="display:inline-block;width:.9rem;height:.9rem;border-radius:50%;background:var(--green);box-shadow:0 0 12px var(--green);animation:pulse 1.8s infinite ease-in-out;"></span>
+      Try it now &mdash; live demo + seeded credentials
+    </h2>
+    <p>The platform ships with three pre-seeded accounts so you can open the storefront, sign in, and walk through the customer + back-office flows in under a minute. Demo data is seeded automatically on first boot in the <code>Development</code> environment via <code>IdentityDataSeeder</code>.</p>
+
+    <h3 style="margin-top:1.2rem;">Quick start &mdash; local (Aspire + Docker)</h3>
+    <pre><code># 1. Backing services (SQL, Postgres, MySQL, Mongo, Redis, RabbitMQ, Seq, Grafana, Prometheus)
+docker compose -f deploy/docker/docker-compose.yaml up -d
+
+# 2. Whole stack via .NET Aspire — boots every microservice + seeds the demo accounts
+dotnet run --project src/AspireAppHost/FreshCart.AppHost
+
+# 3. Customer SPA (storefront + role-gated back-office)
+cd clients/freshcart-customer &amp;&amp; npm install &amp;&amp; npm start</code></pre>
+
+    <h3 style="margin-top:1.2rem;">Open in the browser</h3>
+    <div class="card-grid">
+      <div class="mini-card" style="border-left:4px solid var(--green);">
+        <h4>Customer storefront</h4>
+        <p><a href="http://localhost:4200" target="_blank"><code>http://localhost:4200</code></a></p>
+        <p style="font-size:.78rem;">Sign in &rarr; browse catalog &rarr; basket &rarr; checkout &rarr; receive a SignalR notification.</p>
+      </div>
+      <div class="mini-card" style="border-left:4px solid var(--purple);">
+        <h4>Back-office (same SPA, role-gated)</h4>
+        <p><a href="http://localhost:4200/dashboard" target="_blank"><code>http://localhost:4200/dashboard</code></a></p>
+        <p style="font-size:.78rem;">KPI dashboards, invoices, sales exports, stock management, support agent console. Visible to Administrator, Manager and SupportAgent roles.</p>
+      </div>
+      <div class="mini-card" style="border-left:4px solid var(--accent);">
+        <h4>Aspire dashboard</h4>
+        <p><a href="http://localhost:15888" target="_blank"><code>http://localhost:15888</code></a></p>
+        <p style="font-size:.78rem;">Live view of every service, traces, metrics, logs and dependencies.</p>
+      </div>
+      <div class="mini-card" style="border-left:4px solid var(--blue);">
+        <h4>YARP gateway</h4>
+        <p><a href="http://localhost:5000" target="_blank"><code>http://localhost:5000</code></a></p>
+        <p style="font-size:.78rem;">Single edge for both SPAs. Rate-limited, cookie-validated, JWT-aware.</p>
+      </div>
+      <div class="mini-card" style="border-left:4px solid var(--red);">
+        <h4>Identity API &middot; OpenAPI</h4>
+        <p><a href="https://localhost:7101/openapi/v1.json" target="_blank"><code>https://localhost:7101</code></a></p>
+        <p style="font-size:.78rem;"><code>POST /auth/sign-in</code> &middot; <code>POST /auth/sign-up</code> &middot; <code>GET /account/me</code></p>
+      </div>
+      <div class="mini-card" style="border-left:4px solid var(--dblue);">
+        <h4>Reporting API &middot; OpenAPI</h4>
+        <p><a href="https://localhost:7110/openapi/v1.json" target="_blank"><code>https://localhost:7110</code></a></p>
+        <p style="font-size:.78rem;"><code>/dashboards/*</code> &middot; <code>/invoices</code> &middot; <code>/exports/sales-transactions.xlsx</code></p>
+      </div>
+      <div class="mini-card" style="border-left:4px solid var(--orange);">
+        <h4>Seq &middot; structured logs</h4>
+        <p><a href="http://localhost:5341" target="_blank"><code>http://localhost:5341</code></a></p>
+        <p style="font-size:.78rem;">Browse OpenTelemetry-enriched logs from every service in one place.</p>
+      </div>
+      <div class="mini-card" style="border-left:4px solid var(--teal);">
+        <h4>Grafana &middot; metrics</h4>
+        <p><a href="http://localhost:3000" target="_blank"><code>http://localhost:3000</code></a></p>
+        <p style="font-size:.78rem;">RED / USE dashboards backed by Prometheus. Login <code>admin / freshcart_local_dev</code>.</p>
+      </div>
+      <div class="mini-card" style="border-left:4px solid var(--rabbit);">
+        <h4>RabbitMQ management</h4>
+        <p><a href="http://localhost:15672" target="_blank"><code>http://localhost:15672</code></a></p>
+        <p style="font-size:.78rem;">Every queue, exchange, and integration event flowing through. Login <code>freshcart / freshcart_local_dev</code>.</p>
+      </div>
+    </div>
+
+    <h3 style="margin-top:1.2rem;">Demo credentials (seeded automatically in Development)</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Role</th><th>Email</th><th>Password</th><th>What this account can do</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="badge badge-green">Customer</span></td>
+            <td><code>demo@freshcart.test</code></td>
+            <td><code>Demo-P@ssw0rd-2026</code></td>
+            <td>Browse catalog, add to basket, check out, view orders, chat to support.</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-orange">SupportAgent</span></td>
+            <td><code>support@freshcart.test</code></td>
+            <td><code>Support-P@ssw0rd-2026</code></td>
+            <td>Open the agent console (role-gated route in the SPA), see active chats, respond to customers, view orders for context.</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-red">Administrator</span></td>
+            <td><code>admin@freshcart.test</code></td>
+            <td><code>Admin-P@ssw0rd-2026</code></td>
+            <td>Full back-office: KPI dashboards, generate invoices, manage inventory, export transactions.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="info-box" style="margin-top:1rem;">
+      <strong>Note &mdash;</strong> the seeder only runs when <code>ASPNETCORE_ENVIRONMENT=Development</code>. In <code>Staging</code> and <code>Production</code> the accounts above do <em>not</em> exist; real accounts are provisioned via the admin UI or the back-office bulk-import endpoint, and any <code>*.test</code> email is rejected by validation.
+    </div>
+
+    <h3 style="margin-top:1.2rem;">90-second guided tour after sign-in</h3>
+    <ol class="steps">
+      <li>Open <a href="http://localhost:4200" target="_blank">http://localhost:4200</a> &rarr; sign in as <code>demo@freshcart.test</code>.</li>
+      <li>Browse the catalog (seeded with 24 digital products across 6 categories), add three items to the basket.</li>
+      <li>Check out &mdash; accept the default address. Watch the saga progress through stock reservation and payment capture, then order confirmation.</li>
+      <li>A toast notification appears in the top-right within ~1 second (SignalR push from <code>NotificationHub</code> via Redis backplane).</li>
+      <li>Sign out and back in as <code>admin@freshcart.test</code>; the account dropdown now exposes <em>Dashboard</em> in the same SPA.</li>
+      <li>Open <em>Sales overview</em>: see your test order reflected in the GMV and order-count tiles.</li>
+      <li>Open the order &rarr; click <em>Generate invoice</em> &rarr; a QuestPDF-rendered PDF opens via an Azure Blob SAS URL.</li>
+      <li>Download <em>sales-transactions.xlsx</em>: ClosedXML-rendered Excel with frozen header + auto-width columns.</li>
+    </ol>
+
+    <h3 style="margin-top:1.2rem;">After Azure deployment</h3>
+    <p>The same URLs above resolve to per-environment hostnames once <code>infra/main.bicep</code> + the Helm charts are applied. Example hostnames the production manifests render:</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Surface</th><th>Dev</th><th>Staging</th><th>Production</th></tr></thead>
+        <tbody>
+          <tr><td>Customer storefront (storefront + role-gated back-office)</td><td><code>https://www.dev.freshcart.local</code></td><td><code>https://www.staging.freshcart.local</code></td><td><code>https://www.freshcart.com</code></td></tr>
+          <tr><td>Identity API</td><td><code>https://identity.dev.freshcart.local</code></td><td><code>https://identity.staging.freshcart.local</code></td><td><code>https://identity.freshcart.com</code></td></tr>
+          <tr><td>Reporting API</td><td><code>https://reporting.dev.freshcart.local</code></td><td><code>https://reporting.staging.freshcart.local</code></td><td><code>https://reporting.freshcart.com</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat"><div class="num">12</div><div class="lbl">microservices</div></div>
+    <div class="stat"><div class="num">6</div><div class="lbl">architectural styles</div></div>
+    <div class="stat"><div class="num">7</div><div class="lbl">database engines</div></div>
+    <div class="stat"><div class="num">30+</div><div class="lbl">design patterns</div></div>
+    <div class="stat"><div class="num">100%</div><div class="lbl">OWASP-mapped</div></div>
+    <div class="stat"><div class="num">.NET 10</div><div class="lbl">+ Aspire 13</div></div>
+    <div class="stat"><div class="num">Angular 20</div><div class="lbl">signals + Bootstrap</div></div>
+    <div class="stat"><div class="num">AKS</div><div class="lbl">+ Bicep + ADO + GH</div></div>
+  </div>
+
+  <div class="card">
+    <h2>The system in one picture</h2>
+    <p>Top-to-bottom view of the platform — edge, gateway, services, persistence, eventing, observability.</p>
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);padding:1.2rem;overflow-x:auto">
+      <svg viewBox="0 0 1200 980" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:1200px;display:block;font-family:Inter,system-ui,sans-serif">
+        <defs>
+          <marker id="ah" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#4f8cff"/></marker>
+          <marker id="ah-grn" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#27ae60"/></marker>
+          <marker id="ah-org" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#ff6600"/></marker>
+        </defs>
+
+        <!-- Legend -->
+        <g transform="translate(20,12)">
+          <line x1="0" y1="8" x2="30" y2="8" stroke="#4f8cff" stroke-width="2"/>
+          <text x="35" y="12" fill="#a0a4b8" font-size="11">HTTP / REST / gRPC (sync)</text>
+          <line x1="220" y1="8" x2="250" y2="8" stroke="#ff6600" stroke-width="2" stroke-dasharray="6,3"/>
+          <text x="255" y="12" fill="#a0a4b8" font-size="11">RabbitMQ / Service Bus (async)</text>
+          <line x1="470" y1="8" x2="500" y2="8" stroke="#27ae60" stroke-width="2"/>
+          <text x="505" y="12" fill="#a0a4b8" font-size="11">Database connection</text>
+        </g>
+
+        <!-- L1 Edge -->
+        <rect x="20" y="38" width="1160" height="60" rx="10" fill="none" stroke="#555" stroke-dasharray="4,4"/>
+        <text x="38" y="58" fill="#6b7094" font-size="11" font-weight="600">EDGE (Azure)</text>
+        <rect x="200" y="50" width="200" height="36" rx="7" fill="rgba(0,120,212,.18)" stroke="#0078d4" stroke-width="2"/>
+        <text x="300" y="73" fill="#42a3f5" text-anchor="middle" font-size="12" font-weight="600">Azure Front Door + WAF</text>
+        <rect x="430" y="50" width="200" height="36" rx="7" fill="rgba(255,255,255,.08)" stroke="#ddd" stroke-width="2"/>
+        <text x="530" y="73" fill="#ddd" text-anchor="middle" font-size="12" font-weight="600">Customer SPA (Angular 20)</text>
+        <rect x="660" y="50" width="200" height="36" rx="7" fill="rgba(255,255,255,.08)" stroke="#ddd" stroke-width="2"/>
+        <text x="760" y="73" fill="#ddd" text-anchor="middle" font-size="12" font-weight="600">Back-office (role-gated SPA)</text>
+        <rect x="890" y="50" width="200" height="36" rx="7" fill="rgba(255,255,255,.08)" stroke="#ddd" stroke-width="2"/>
+        <text x="990" y="73" fill="#ddd" text-anchor="middle" font-size="12" font-weight="600">Mobile (future)</text>
+
+        <line x1="600" y1="86" x2="600" y2="115" stroke="#4f8cff" stroke-width="2" marker-end="url(#ah)"/>
+        <text x="610" y="105" fill="#a0a4b8" font-size="10">HTTPS + cookie</text>
+
+        <!-- L2 Gateway -->
+        <rect x="20" y="115" width="1160" height="58" rx="10" fill="none" stroke="#555" stroke-dasharray="4,4"/>
+        <text x="38" y="135" fill="#6b7094" font-size="11" font-weight="600">API GATEWAY (BFF)</text>
+        <rect x="330" y="125" width="540" height="36" rx="7" fill="rgba(79,140,255,.18)" stroke="#4f8cff" stroke-width="2"/>
+        <text x="600" y="148" fill="#7da7ff" text-anchor="middle" font-size="12" font-weight="600">YARP Gateway — routing · rate limit · cookie validation · BFF aggregation</text>
+
+        <line x1="600" y1="161" x2="600" y2="195" stroke="#4f8cff" stroke-width="2" marker-end="url(#ah)"/>
+
+        <!-- L3 Microservices -->
+        <rect x="20" y="195" width="1160" height="280" rx="10" fill="none" stroke="#555" stroke-dasharray="4,4"/>
+        <text x="38" y="215" fill="#6b7094" font-size="11" font-weight="600">12 MICROSERVICES</text>
+
+        <!-- Row 1: 6 services -->
+        <g font-family="Inter,system-ui,sans-serif">
+          <rect x="40"   y="230" width="180" height="50" rx="7" fill="rgba(233,69,96,.18)"  stroke="#e94560" stroke-width="2"/>
+          <text x="130"  y="250" fill="#ff7b8e" text-anchor="middle" font-size="12" font-weight="600">Identity</text>
+          <text x="130"  y="268" fill="#6b7094" text-anchor="middle" font-size="10">Clean Arch · ASP.NET Identity</text>
+
+          <rect x="230"  y="230" width="180" height="50" rx="7" fill="rgba(39,174,96,.18)"  stroke="#27ae60" stroke-width="2"/>
+          <text x="320"  y="250" fill="#3ed080" text-anchor="middle" font-size="12" font-weight="600">Catalog</text>
+          <text x="320"  y="268" fill="#6b7094" text-anchor="middle" font-size="10">Vertical Slice · Marten</text>
+
+          <rect x="420"  y="230" width="180" height="50" rx="7" fill="rgba(243,156,18,.18)" stroke="#f39c12" stroke-width="2"/>
+          <text x="510"  y="250" fill="#f5b54a" text-anchor="middle" font-size="12" font-weight="600">Pricing.Grpc</text>
+          <text x="510"  y="268" fill="#6b7094" text-anchor="middle" font-size="10">gRPC · proto-first</text>
+
+          <rect x="610"  y="230" width="180" height="50" rx="7" fill="rgba(155,89,182,.18)" stroke="#9b59b6" stroke-width="2"/>
+          <text x="700"  y="250" fill="#bd7fd8" text-anchor="middle" font-size="12" font-weight="600">Basket</text>
+          <text x="700"  y="268" fill="#6b7094" text-anchor="middle" font-size="10">VSlice · Outbox · HybridCache</text>
+
+          <rect x="800"  y="230" width="180" height="50" rx="7" fill="rgba(52,152,219,.18)" stroke="#3498db" stroke-width="2"/>
+          <text x="890"  y="250" fill="#5db4e8" text-anchor="middle" font-size="12" font-weight="600">Ordering</text>
+          <text x="890"  y="268" fill="#6b7094" text-anchor="middle" font-size="10">Clean · DDD · Saga · Outbox</text>
+
+          <rect x="990"  y="230" width="180" height="50" rx="7" fill="rgba(26,188,156,.18)" stroke="#1abc9c" stroke-width="2"/>
+          <text x="1080" y="250" fill="#4cd3b7" text-anchor="middle" font-size="12" font-weight="600">Inventory</text>
+          <text x="1080" y="268" fill="#6b7094" text-anchor="middle" font-size="10">Layered · Dapper</text>
+
+          <!-- Row 2 -->
+          <rect x="40"   y="295" width="180" height="50" rx="7" fill="rgba(230,126,34,.18)" stroke="#e67e22" stroke-width="2"/>
+          <text x="130"  y="315" fill="#eb9b59" text-anchor="middle" font-size="12" font-weight="600">Payment</text>
+          <text x="130"  y="333" fill="#6b7094" text-anchor="middle" font-size="10">Clean · Event Sourcing</text>
+
+          <rect x="230"  y="295" width="180" height="50" rx="7" fill="rgba(46,204,113,.18)" stroke="#2ecc71" stroke-width="2"/>
+          <text x="320"  y="315" fill="#5cd88c" text-anchor="middle" font-size="12" font-weight="600">Delivery</text>
+          <text x="320"  y="333" fill="#6b7094" text-anchor="middle" font-size="10">Hexagonal · Mongo geo</text>
+
+          <rect x="420"  y="295" width="180" height="50" rx="7" fill="rgba(142,68,173,.18)" stroke="#8e44ad" stroke-width="2"/>
+          <text x="510"  y="315" fill="#b378d6" text-anchor="middle" font-size="12" font-weight="600">Notification</text>
+          <text x="510"  y="333" fill="#6b7094" text-anchor="middle" font-size="10">Bus consumers · SignalR</text>
+
+          <rect x="610"  y="295" width="180" height="50" rx="7" fill="rgba(231,76,60,.18)"  stroke="#e74c3c" stroke-width="2"/>
+          <text x="700"  y="315" fill="#ee8170" text-anchor="middle" font-size="12" font-weight="600">CustomerSupport</text>
+          <text x="700"  y="333" fill="#6b7094" text-anchor="middle" font-size="10">Stateful WebSocket · SignalR</text>
+
+          <rect x="800"  y="295" width="180" height="50" rx="7" fill="rgba(22,160,133,.18)" stroke="#16a085" stroke-width="2"/>
+          <text x="890"  y="315" fill="#4dbfa6" text-anchor="middle" font-size="12" font-weight="600">Reviews</text>
+          <text x="890"  y="333" fill="#6b7094" text-anchor="middle" font-size="10">VSlice · MongoDB</text>
+
+          <rect x="990"  y="295" width="180" height="50" rx="7" fill="rgba(52,73,94,.18)"   stroke="#7d99b8" stroke-width="2"/>
+          <text x="1080" y="315" fill="#9eb1c8" text-anchor="middle" font-size="12" font-weight="600">Reporting</text>
+          <text x="1080" y="333" fill="#6b7094" text-anchor="middle" font-size="10">CQRS read model · QuestPDF</text>
+
+          <!-- Row 3 (Gateway + SPA) -->
+          <rect x="300" y="380" width="240" height="50" rx="7" fill="rgba(79,140,255,.18)" stroke="#4f8cff" stroke-width="2"/>
+          <text x="420" y="400" fill="#7da7ff" text-anchor="middle" font-size="12" font-weight="600">YARP Gateway (BFF)</text>
+          <text x="420" y="418" fill="#6b7094" text-anchor="middle" font-size="10">cookie validation · cookie to JWT</text>
+
+          <rect x="660" y="380" width="240" height="50" rx="7" fill="rgba(255,255,255,.08)" stroke="#ddd" stroke-width="2"/>
+          <text x="780" y="400" fill="#ddd" text-anchor="middle" font-size="12" font-weight="600">Customer SPA (Angular 20)</text>
+          <text x="780" y="418" fill="#6b7094" text-anchor="middle" font-size="10">signals · zoneless · Bootstrap 5</text>
+        </g>
+
+        <!-- Eventing layer -->
+        <rect x="20" y="490" width="1160" height="60" rx="10" fill="none" stroke="#555" stroke-dasharray="4,4"/>
+        <text x="38" y="510" fill="#6b7094" font-size="11" font-weight="600">EVENT BUS (Outbox guaranteed)</text>
+        <rect x="380" y="500" width="440" height="36" rx="7" fill="rgba(255,102,0,.18)" stroke="#ff6600" stroke-width="2" stroke-dasharray="0"/>
+        <text x="600" y="523" fill="#ff8533" text-anchor="middle" font-size="12" font-weight="600">RabbitMQ (DEV) · Azure Service Bus (PROD) — MassTransit</text>
+
+        <!-- Persistence layer -->
+        <rect x="20" y="565" width="1160" height="195" rx="10" fill="none" stroke="#555" stroke-dasharray="4,4"/>
+        <text x="38" y="585" fill="#6b7094" font-size="11" font-weight="600">POLYGLOT PERSISTENCE</text>
+
+        <g>
+          <rect x="40"   y="600" width="170" height="46" rx="7" fill="rgba(204,41,39,.18)" stroke="#cc2927" stroke-width="2"/>
+          <text x="125"  y="620" fill="#e85b5a" text-anchor="middle" font-size="11" font-weight="600">Azure SQL</text>
+          <text x="125"  y="636" fill="#6b7094" text-anchor="middle" font-size="9">Identity · Ordering · Inventory · Payment-read</text>
+
+          <rect x="220"  y="600" width="170" height="46" rx="7" fill="rgba(51,103,145,.18)" stroke="#336791" stroke-width="2"/>
+          <text x="305"  y="620" fill="#5993c4" text-anchor="middle" font-size="11" font-weight="600">Azure Postgres</text>
+          <text x="305"  y="636" fill="#6b7094" text-anchor="middle" font-size="9">Catalog (Marten) · Basket</text>
+
+          <rect x="400"  y="600" width="170" height="46" rx="7" fill="rgba(77,179,61,.18)" stroke="#4db33d" stroke-width="2"/>
+          <text x="485"  y="620" fill="#73c763" text-anchor="middle" font-size="11" font-weight="600">MongoDB</text>
+          <text x="485"  y="636" fill="#6b7094" text-anchor="middle" font-size="9">Delivery · Payment-events · Reviews · Support</text>
+
+          <rect x="580"  y="600" width="170" height="46" rx="7" fill="rgba(214,48,49,.18)" stroke="#d63031" stroke-width="2"/>
+          <text x="665"  y="620" fill="#ee5a5b" text-anchor="middle" font-size="11" font-weight="600">Azure Cache Redis</text>
+          <text x="665"  y="636" fill="#6b7094" text-anchor="middle" font-size="9">HybridCache L2 · SignalR backplane · sessions</text>
+
+          <rect x="760"  y="600" width="170" height="46" rx="7" fill="rgba(0,117,143,.18)" stroke="#00758f" stroke-width="2"/>
+          <text x="845"  y="620" fill="#3aa3b8" text-anchor="middle" font-size="11" font-weight="600">Azure MySQL</text>
+          <text x="845"  y="636" fill="#6b7094" text-anchor="middle" font-size="9">Reporting warehouse</text>
+
+          <rect x="940"  y="600" width="220" height="46" rx="7" fill="rgba(51,152,219,.18)" stroke="#3398db" stroke-width="2"/>
+          <text x="1050" y="620" fill="#5fb6e8" text-anchor="middle" font-size="11" font-weight="600">Azure Cosmos DB (SQL)</text>
+          <text x="1050" y="636" fill="#6b7094" text-anchor="middle" font-size="9">Notification</text>
+
+          <rect x="40"   y="665" width="280" height="46" rx="7" fill="rgba(0,120,212,.18)" stroke="#0078d4" stroke-width="2"/>
+          <text x="180"  y="685" fill="#42a3f5" text-anchor="middle" font-size="11" font-weight="600">Azure Key Vault</text>
+          <text x="180"  y="701" fill="#6b7094" text-anchor="middle" font-size="9">Secrets · signing keys · certs · workload identity</text>
+
+          <rect x="340"  y="665" width="280" height="46" rx="7" fill="rgba(0,120,212,.18)" stroke="#0078d4" stroke-width="2"/>
+          <text x="480"  y="685" fill="#42a3f5" text-anchor="middle" font-size="11" font-weight="600">Azure App Configuration</text>
+          <text x="480"  y="701" fill="#6b7094" text-anchor="middle" font-size="9">Centralised config · feature flags</text>
+
+          <rect x="640"  y="665" width="280" height="46" rx="7" fill="rgba(0,120,212,.18)" stroke="#0078d4" stroke-width="2"/>
+          <text x="780"  y="685" fill="#42a3f5" text-anchor="middle" font-size="11" font-weight="600">Azure Blob Storage</text>
+          <text x="780"  y="701" fill="#6b7094" text-anchor="middle" font-size="9">Product images · report PDFs · uploads</text>
+
+          <rect x="940"  y="665" width="220" height="46" rx="7" fill="rgba(0,120,212,.18)" stroke="#0078d4" stroke-width="2"/>
+          <text x="1050" y="685" fill="#42a3f5" text-anchor="middle" font-size="11" font-weight="600">Microsoft Entra ID</text>
+          <text x="1050" y="701" fill="#6b7094" text-anchor="middle" font-size="9">Workload Identity on AKS</text>
+        </g>
+
+        <!-- Observability -->
+        <rect x="20" y="775" width="1160" height="60" rx="10" fill="none" stroke="#555" stroke-dasharray="4,4"/>
+        <text x="38" y="795" fill="#6b7094" font-size="11" font-weight="600">OBSERVABILITY</text>
+        <rect x="60"  y="785" width="230" height="36" rx="7" fill="rgba(79,140,255,.10)" stroke="#4f8cff" stroke-width="2"/>
+        <text x="175" y="808" fill="#7da7ff" text-anchor="middle" font-size="11" font-weight="600">OpenTelemetry Collector</text>
+        <rect x="310" y="785" width="230" height="36" rx="7" fill="rgba(0,120,212,.10)" stroke="#0078d4" stroke-width="2"/>
+        <text x="425" y="808" fill="#42a3f5" text-anchor="middle" font-size="11" font-weight="600">Application Insights + Log Analytics</text>
+        <rect x="560" y="785" width="230" height="36" rx="7" fill="rgba(243,156,18,.10)" stroke="#f39c12" stroke-width="2"/>
+        <text x="675" y="808" fill="#f5b54a" text-anchor="middle" font-size="11" font-weight="600">Azure Managed Prometheus</text>
+        <rect x="810" y="785" width="230" height="36" rx="7" fill="rgba(39,174,96,.10)" stroke="#27ae60" stroke-width="2"/>
+        <text x="925" y="808" fill="#3ed080" text-anchor="middle" font-size="11" font-weight="600">Azure Managed Grafana</text>
+
+        <!-- DevOps -->
+        <rect x="20" y="850" width="1160" height="60" rx="10" fill="none" stroke="#555" stroke-dasharray="4,4"/>
+        <text x="38" y="870" fill="#6b7094" font-size="11" font-weight="600">DEVOPS</text>
+        <rect x="60"  y="860" width="180" height="36" rx="7" fill="rgba(93,156,236,.12)" stroke="#5d9cec" stroke-width="2"/>
+        <text x="150" y="883" fill="#7eb2f0" text-anchor="middle" font-size="11" font-weight="600">GitHub Actions</text>
+        <rect x="260" y="860" width="180" height="36" rx="7" fill="rgba(93,156,236,.12)" stroke="#5d9cec" stroke-width="2"/>
+        <text x="350" y="883" fill="#7eb2f0" text-anchor="middle" font-size="11" font-weight="600">Azure DevOps</text>
+        <rect x="460" y="860" width="180" height="36" rx="7" fill="rgba(108,92,231,.12)" stroke="#6c5ce7" stroke-width="2"/>
+        <text x="550" y="883" fill="#a99cf5" text-anchor="middle" font-size="11" font-weight="600">Bicep / Terraform</text>
+        <rect x="660" y="860" width="180" height="36" rx="7" fill="rgba(39,174,96,.12)" stroke="#27ae60" stroke-width="2"/>
+        <text x="750" y="883" fill="#3ed080" text-anchor="middle" font-size="11" font-weight="600">Helm + ArgoCD/Flux</text>
+        <rect x="860" y="860" width="280" height="36" rx="7" fill="rgba(0,120,212,.12)" stroke="#0078d4" stroke-width="2"/>
+        <text x="1000" y="883" fill="#42a3f5" text-anchor="middle" font-size="11" font-weight="600">Azure Kubernetes Service (AKS)</text>
+      </svg>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>The five tenets</h2>
+    <p>Every decision in the repo is checked against these. The interview question "why?" always lands here.</p>
+    <ol class="steps">
+      <li><strong>One demonstrable pattern per service.</strong> Each bounded context is implemented in a <em>different</em> architectural style so the repo doubles as a teaching artifact.</li>
+      <li><strong>Database per service.</strong> No cross-service joins. Cross-service reads use API aggregation at the gateway or a materialised read model.</li>
+      <li><strong>Sync hops are at most one deep.</strong> Beyond that, services communicate via events with the transactional outbox guarantee.</li>
+      <li><strong>Cookie-first for browsers, JWT for everything else.</strong> Browser sessions never see a JWT. Mobile and service-to-service callers never see a session cookie.</li>
+      <li><strong>Observability is not an add-on.</strong> Every service emits OpenTelemetry traces + metrics + logs from day one. If you cannot see it, you cannot operate it.</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>The CV → repository map</h2>
+    <p>Every skill on the candidate's CV is anchored to a concrete location in the repo. Pick any row and an interviewer can be walked from claim to code.</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>CV claim</th><th>Lives in</th></tr></thead>
+        <tbody>
+          <tr><td>Clean Architecture</td><td>Identity, Ordering, Payment</td></tr>
+          <tr><td>Microservices</td><td>12 bounded contexts (this repo)</td></tr>
+          <tr><td>Domain-Driven Design</td><td>Ordering.Domain (Aggregate, ValueObject, DomainEvent)</td></tr>
+          <tr><td>CQRS</td><td>Every service via <code>BuildingBlocks/CQRS</code> + MediatR</td></tr>
+          <tr><td>Event Sourcing</td><td>Payment service — Mongo event store</td></tr>
+          <tr><td>Saga Pattern</td><td>Ordering — MassTransit state machine for checkout</td></tr>
+          <tr><td>Repository + Unit of Work</td><td>Ordering.Infrastructure (UoW = DbContext)</td></tr>
+          <tr><td>Vertical Slice Architecture</td><td>Catalog, Basket, Reviews</td></tr>
+          <tr><td>Middleware + Interceptors</td><td>BuildingBlocks (security headers) + EF Core interceptors in Ordering</td></tr>
+          <tr><td>Decorator Pattern</td><td>Basket — CachedBasketRepository</td></tr>
+          <tr><td>Centralized Error Handling</td><td>CustomExceptionHandler → RFC 7807 ProblemDetails</td></tr>
+          <tr><td>IdentityServer4 / Duende</td><td>Identity — ASP.NET Identity + JWT issuer (Duende-ready)</td></tr>
+          <tr><td>JWT + OAuth2 + OpenID Connect</td><td>Identity.Infrastructure.Tokens</td></tr>
+          <tr><td>SignalR (real-time)</td><td>Notification + CustomerSupport hubs</td></tr>
+          <tr><td>RabbitMQ</td><td>MassTransit wiring in BuildingBlocks.Messaging</td></tr>
+          <tr><td>EF Core + Dapper hybrid</td><td>Ordering (EF writes, Dapper reads)</td></tr>
+          <tr><td>MongoDB</td><td>Delivery, Payment events, Reviews, CustomerSupport</td></tr>
+          <tr><td>SQL Server + Redis + MySQL</td><td>Identity / cache+backplane / Reporting</td></tr>
+          <tr><td>Docker + Kubernetes + AKS</td><td>deploy/docker · deploy/k8s · deploy/helm · infra (Bicep)</td></tr>
+          <tr><td>Azure DevOps + GitHub Actions CI/CD</td><td>azure-pipelines/ + .github/workflows/</td></tr>
+          <tr><td>Prometheus + Grafana</td><td>otel-collector → Azure Managed Prometheus + Grafana</td></tr>
+          <tr><td>SonarQube / SonarCloud</td><td>Quality stage in both pipelines</td></tr>
+          <tr><td>Serilog → ELK / App Insights</td><td>Every service Program.cs</td></tr>
+          <tr><td>Reporting (PDF + Excel)</td><td>Reporting service — QuestPDF invoices, ClosedXML exports</td></tr>
+          <tr><td>TDD + Unit + Integration Testing</td><td>xUnit + Testcontainers + Playwright</td></tr>
+          <tr><td>Angular (latest, signals)</td><td>clients/freshcart-customer (Angular 20)</td></tr>
+          <tr><td>Bootstrap 5 + RxJS</td><td>clients/freshcart-customer (storefront + role-gated back-office)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Evolution ladder — where this system sits</h2>
+    <p>The repo deliberately demonstrates the climb from monolith to event-driven microservices, with documented exit criteria for each stage. The current implementation lives at <strong>stage 11</strong>: event-driven microservices with the transactional outbox and HybridCache, fronted by a YARP BFF gateway and a single Angular customer SPA.</p>
+    <ol class="steps">
+      <li><strong>Monolith, one app, in-memory</strong> — MVP, &lt;100 req/s. Documented under <code>docs/evolution/</code>.</li>
+      <li><strong>Monolith + persistent DB</strong> — first real users.</li>
+      <li><strong>Monolith + UI</strong> — real product, single deploy unit.</li>
+      <li><strong>Modular Monolith</strong> — 4–15 devs, clear bounded contexts.</li>
+      <li><strong>+ Distributed cache</strong> — read-heavy.</li>
+      <li><strong>Microservices (first split)</strong> — multiple teams, scaling pressure.</li>
+      <li><strong>+ Sync calls (HTTP / gRPC)</strong> — cross-context reads.</li>
+      <li><strong>+ API Gateway (YARP)</strong> — public clients, auth, rate limit.</li>
+      <li><strong>+ Event-driven (RabbitMQ + MassTransit)</strong> — eventual consistency.</li>
+      <li><strong>+ Hybrid Cache (L1 + L2)</strong> — hot reads dominate.</li>
+      <li><strong>+ Transactional Outbox</strong> — exactly-once event delivery — <em>current</em>.</li>
+      <li><strong>+ Serverless slices</strong> — variable load — optional, future.</li>
+      <li><strong>+ Sharding &amp; multi-region</strong> — multi-region active-active when single-region IOPS hits the wall.</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- TAB 2: DOMAIN                                                    -->
+<!-- ================================================================ -->
+<div id="tab-domain" class="tab-content">
+  <div class="hero">
+    <h2>The domain — online supermarket</h2>
+    <p>Domain decomposed from an event-storm of the customer journey: <em>browse → add to basket → check out → pay → reserve stock → fulfil → deliver → notify → review → ask for support</em>. Each stable noun and verb became either an aggregate, a domain event, or — when the cohesion was high and the coupling was low — a separate bounded context.</p>
+  </div>
+
+  <div class="card">
+    <h2>Bounded contexts</h2>
+    <p>Twelve bounded contexts. Each owns its own data; cross-context state propagates as events. The colour code follows through to the per-service flow diagrams in the Animated Flows tab.</p>
+    <div class="card-grid">
+      <div class="mini-card" style="border-left:4px solid #e94560"><h4>Identity <span class="badge badge-red">A07</span></h4><p>Users, roles, sign-up, sign-in, password reset, MFA, refresh, sessions. The security boundary every other service depends on.</p></div>
+      <div class="mini-card" style="border-left:4px solid #27ae60"><h4>Catalog <span class="badge badge-green">Reads</span></h4><p>Products, categories, brands, attributes, search, images. Read-heavy with separate scaling profile.</p></div>
+      <div class="mini-card" style="border-left:4px solid #f39c12"><h4>Pricing <span class="badge badge-orange">gRPC</span></h4><p>Per-product discount rules, coupon validation, configurable tax rate. Stateless hot path.</p></div>
+      <div class="mini-card" style="border-left:4px solid #9b59b6"><h4>Basket <span class="badge badge-purple">Cache</span></h4><p>Per-user shopping cart with TTL. Hot reads via HybridCache, writes go through transactional outbox.</p></div>
+      <div class="mini-card" style="border-left:4px solid #3498db"><h4>Ordering <span class="badge badge-blue">DDD · Saga</span></h4><p>Order lifecycle and checkout saga orchestration. Rich domain with multiple invariants.</p></div>
+      <div class="mini-card" style="border-left:4px solid #1abc9c"><h4>Inventory <span class="badge badge-teal">Strong</span></h4><p>Stock levels, reservations, replenishment. Strong consistency, transactional.</p></div>
+      <div class="mini-card" style="border-left:4px solid #e67e22"><h4>Payment <span class="badge badge-orange">PCI</span></h4><p>Payment intents, gateway integration, refunds, audit trail. Event-sourced for compliance.</p></div>
+      <div class="mini-card" style="border-left:4px solid #2ecc71"><h4>Delivery <span class="badge badge-green">Geo</span></h4><p>Slots, routes, driver assignment, ETA, geo-fencing. Geo-heavy.</p></div>
+      <div class="mini-card" style="border-left:4px solid #8e44ad"><h4>Notification <span class="badge badge-purple">SignalR</span></h4><p>In-app real-time push plus a pluggable email channel. Fan-out from the event bus, no domain logic.</p></div>
+      <div class="mini-card" style="border-left:4px solid #e74c3c"><h4>CustomerSupport <span class="badge badge-red">WebSocket</span></h4><p>Live agent ↔ customer chat. Persistent connection workload with sticky sessions.</p></div>
+      <div class="mini-card" style="border-left:4px solid #16a085"><h4>Reviews <span class="badge badge-teal">Mongo</span></h4><p>Product reviews, ratings, moderation. Doc-shaped data, eventual consistency.</p></div>
+      <div class="mini-card" style="border-left:4px solid #7d99b8"><h4>Reporting <span class="badge badge-grey">OLAP</span></h4><p>KPI dashboards, QuestPDF invoices, ClosedXML exports, analytics warehouse. Separate engine — OLAP isolation.</p></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Context map — relationships between contexts</h2>
+    <table>
+      <thead><tr><th>Upstream</th><th>Downstream</th><th>Pattern</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Identity</td><td>Every service</td><td>Conformist (everyone trusts the JWT / cookie)</td><td>Identity owns the user model; downstreams read claims, never write</td></tr>
+        <tr><td>Catalog</td><td>Basket</td><td>Customer-Supplier (sync HTTP + ProductPriceChanged event)</td><td>Basket subscribes to price changes to update line totals</td></tr>
+        <tr><td>Pricing</td><td>Basket, Ordering</td><td>Open Host Service (gRPC)</td><td>Strongly-typed proto contract</td></tr>
+        <tr><td>Basket</td><td>Ordering</td><td>Event (BasketCheckoutStartedIntegrationEvent via outbox)</td><td>Hand-off; basket is archived and deleted after the order is submitted</td></tr>
+        <tr><td>Ordering</td><td>Inventory, Payment</td><td>Saga (orchestrated)</td><td>MassTransit state machine reserves stock (gRPC) then captures payment (REST), with a release compensation on payment failure</td></tr>
+        <tr><td>Ordering</td><td>Notification, Reviews, Delivery, Reporting</td><td>Event (OrderPlaced, OrderConfirmed, OrderCancelled, OrderRefunded)</td><td>Downstreams build their own local state from these events</td></tr>
+        <tr><td>Notification</td><td>Browser</td><td>SignalR over WebSocket</td><td>Redis backplane for cross-instance fan-out</td></tr>
+        <tr><td>CustomerSupport</td><td>Browser ↔ Agent</td><td>SignalR full-duplex</td><td>Sticky sessions on AKS via session affinity; round-robin agent assignment over Redis</td></tr>
+        <tr><td>Ordering, Delivery</td><td>Reporting</td><td>Materialised read model (projection)</td><td>Reporting consumes OrderConfirmed and OrderRefunded to build the denormalised MySQL warehouse</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- TAB 3: 12 MICROSERVICES                                          -->
+<!-- ================================================================ -->
+<div id="tab-services" class="tab-content">
+  <div class="hero">
+    <h2>The 12 microservices</h2>
+    <p>Each service is described with: domain, architectural style, persistence, communication style, functional and non-functional requirements, key technologies and patterns, plus a code-link.</p>
+  </div>
+
+  <div class="sub-tab-bar">
+    <button class="sub-tab-btn active" data-sub="services" data-key="identity">Identity</button>
+    <button class="sub-tab-btn" data-sub="services" data-key="catalog">Catalog</button>
+    <button class="sub-tab-btn" data-sub="services" data-key="pricing">Pricing</button>
+    <button class="sub-tab-btn" data-sub="services" data-key="basket">Basket</button>
+    <button class="sub-tab-btn" data-sub="services" data-key="ordering">Ordering</button>
+    <button class="sub-tab-btn" data-sub="services" data-key="inventory">Inventory</button>
+    <button class="sub-tab-btn" data-sub="services" data-key="payment">Payment</button>
+    <button class="sub-tab-btn" data-sub="services" data-key="delivery">Delivery</button>
+    <button class="sub-tab-btn" data-sub="services" data-key="notification">Notification</button>
+    <button class="sub-tab-btn" data-sub="services" data-key="support">CustomerSupport</button>
+    <button class="sub-tab-btn" data-sub="services" data-key="reviews">Reviews</button>
+    <button class="sub-tab-btn" data-sub="services" data-key="reporting">Reporting</button>
+    <button class="sub-tab-btn" data-sub="services" data-key="gateway">YARP Gateway</button>
+    <button class="sub-tab-btn" data-sub="services" data-key="spa">Customer SPA</button>
+  </div>
+
+  <!-- Identity -->
+  <div class="sub-content active" data-sub="services" data-key="identity">
+    <div class="svc-card svc-clean">
+      <h3><span class="badge badge-red">Clean Architecture</span> Identity Service</h3>
+      <div class="meta"><span class="badge badge-blue">.NET 10</span><span class="badge badge-blue">ASP.NET Identity</span><span class="badge badge-blue">EF Core</span><span class="badge badge-blue">Argon2id</span><span class="badge badge-blue">JWT</span><span class="badge badge-blue">Cookies</span><span class="badge badge-blue">SQL Server</span></div>
+      <p>The security boundary every other service depends on. First service implemented end-to-end because every other service consumes its tokens.</p>
+
+      <div class="label">Domain (Functional)</div>
+      <ul class="checklist">
+        <li>Customer self-service sign-up with email confirmation.</li>
+        <li>Cookie-first sign-in for browser SPAs; JWT issue for mobile and service-to-service.</li>
+        <li>Refresh-token rotation with reuse detection — token theft triggers family-wide revocation.</li>
+        <li>TOTP-based multi-factor authentication enrolment + verification.</li>
+        <li>Lockout after five failed sign-ins for fifteen minutes.</li>
+        <li>Password reset by signed time-limited token sent to verified email.</li>
+        <li>Role-based access: <code>Customer</code>, <code>SupportAgent</code>, <code>Administrator</code>.</li>
+        <li>Append-only audit log for every authentication event.</li>
+      </ul>
+
+      <div class="label">Non-functional</div>
+      <ul class="checklist">
+        <li>Sign-in p95 &lt; 300 ms at 200 req/s steady-state.</li>
+        <li>Argon2id password hashing (64 MiB memory, 3 iterations, parallelism 4).</li>
+        <li>OWASP A07 — lockout, MFA, HttpOnly+Secure+SameSite=Strict cookies, anti-forgery.</li>
+        <li>Refresh-token reuse detection revokes the entire token family for that user.</li>
+        <li>Horizontal scaling via Redis-backed Data Protection key ring (cookie validation works behind a load balancer).</li>
+      </ul>
+
+      <div class="label">Tech &amp; patterns</div>
+      <ul class="checklist">
+        <li>Clean Architecture — Domain / Application / Infrastructure / Api projects.</li>
+        <li>CQRS + MediatR with <code>ValidationBehavior</code> and <code>LoggingBehavior</code>.</li>
+        <li>FluentValidation per command; <code>CustomExceptionHandler</code> → ProblemDetails.</li>
+        <li>EF Core with retry-on-failure; migrations in the <code>identity</code> schema.</li>
+        <li>Carter modules for endpoint routing.</li>
+        <li>Cookie scheme + JWT bearer scheme co-exist; policy <code>RequireAuthenticatedUser</code> works against either.</li>
+      </ul>
+
+      <div class="label">Persistence</div>
+      <p>Azure SQL Database. Tables: <code>identity.AspNetUsers</code>, <code>identity.AspNetRoles</code>, <code>identity.RefreshTokens</code>, <code>identity.AuditEvents</code>.</p>
+
+      <div class="label">Code links</div>
+      <pre><code>src/Services/Identity/FreshCart.Identity.Domain/Users/ApplicationUser.cs
+src/Services/Identity/FreshCart.Identity.Application/Authentication/Commands/SignIn/SignInCommandHandler.cs
+src/Services/Identity/FreshCart.Identity.Infrastructure/Tokens/RefreshTokenService.cs
+src/Services/Identity/FreshCart.Identity.Infrastructure/Cryptography/Argon2PasswordHasher.cs
+src/Services/Identity/FreshCart.Identity.Api/Configuration/AuthenticationConfiguration.cs
+src/Services/Identity/FreshCart.Identity.Api/Endpoints/Authentication/AuthenticationEndpoints.cs</code></pre>
+    </div>
+  </div>
+
+  <!-- Catalog -->
+  <div class="sub-content" data-sub="services" data-key="catalog">
+    <div class="svc-card svc-vslice">
+      <h3><span class="badge badge-green">Vertical Slice</span> Catalog Service</h3>
+      <div class="meta"><span class="badge badge-blue">.NET 10</span><span class="badge badge-blue">Carter</span><span class="badge badge-blue">MediatR</span><span class="badge badge-blue">Marten</span><span class="badge badge-blue">PostgreSQL</span><span class="badge badge-blue">Redis HybridCache</span></div>
+      <p>Product browsing, search and admin CRUD. The CRUD-heavy nature of the workload makes Vertical Slice a better fit than Clean — each feature is a self-contained folder.</p>
+      <div class="label">Functional</div>
+      <ul class="checklist">
+        <li>Create / update / delete / get / search products with categories, brands, attributes.</li>
+        <li>Image upload to Azure Blob Storage via signed URLs (Browser → Blob direct).</li>
+        <li>Price change publishes <code>ProductPriceChangedIntegrationEvent</code>; create publishes <code>ProductCreatedIntegrationEvent</code> (direct publish; outbox is reserved for money-critical events).</li>
+        <li>Full-text search via Marten's Postgres full-text index, fronted by HybridCache.</li>
+      </ul>
+      <div class="label">Non-functional</div>
+      <ul class="checklist">
+        <li>Read p95 &lt; 80 ms; cache hit ratio &gt; 90% in steady state.</li>
+        <li>Idempotent Create accepts <code>Idempotency-Key</code> header.</li>
+        <li>Horizontally scalable with no sticky-session requirement.</li>
+      </ul>
+      <div class="label">Tech &amp; patterns</div>
+      <ul class="checklist">
+        <li>Vertical Slice — <code>Features/{Aggregate}/{UseCase}/{Command|Query|Handler|Endpoint|Validator}.cs</code>.</li>
+        <li>Marten over Postgres for document-store ergonomics on a relational engine.</li>
+        <li>HybridCache for L1 (in-process) + L2 (Redis).</li>
+        <li>MediatR + Carter; FluentValidation per command.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Pricing -->
+  <div class="sub-content" data-sub="services" data-key="pricing">
+    <div class="svc-card svc-grpc">
+      <h3><span class="badge badge-orange">gRPC</span> Pricing Service</h3>
+      <div class="meta"><span class="badge badge-blue">.NET 10</span><span class="badge badge-blue">gRPC</span><span class="badge badge-blue">Protobuf</span><span class="badge badge-blue">SQLite (in-container)</span></div>
+      <p>Stateless hot-path price computation: per-product discount rules, coupon validation, configurable tax. gRPC chosen for strongly-typed contract and lower per-call cost. Deliberately no CQRS, no MediatR, no events &mdash; the restraint is the point.</p>
+      <div class="label">Functional</div>
+      <ul class="checklist">
+        <li><code>PriceBasket</code> — applies all active discount rules and the coupon to a basket snapshot, returns priced lines plus subtotal, discount, tax and grand totals.</li>
+        <li><code>ValidateCoupon</code> — single-call coupon check (expiry, usage limit, minimum order) used at basket time.</li>
+        <li>Two Carter REST endpoints for admin discount-rule and coupon management.</li>
+      </ul>
+      <div class="label">Non-functional</div>
+      <ul class="checklist">
+        <li>p99 &lt; 25 ms — stateless calculator over SQLite reference data that ships in the container.</li>
+        <li>Backward-compatible proto evolution only — additive fields, never renumber.</li>
+        <li>Kestrel serves HTTP/2 (gRPC) and HTTP/1.1 (REST + health) on the same endpoint.</li>
+        <li>Money crosses the proto boundary as invariant-culture strings, never <code>double</code>.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Basket -->
+  <div class="sub-content" data-sub="services" data-key="basket">
+    <div class="svc-card svc-vslice">
+      <h3><span class="badge badge-purple">Vertical Slice + Outbox + Decorator</span> Basket Service</h3>
+      <div class="meta"><span class="badge badge-blue">.NET 10</span><span class="badge badge-blue">PostgreSQL</span><span class="badge badge-blue">Redis HybridCache</span><span class="badge badge-blue">MassTransit</span><span class="badge badge-blue">Outbox</span></div>
+      <p>The shopping cart. Hot user state — every page view touches it. Cross-service writes (checkout, price update from Catalog) go through the transactional outbox.</p>
+      <div class="label">Functional</div>
+      <ul class="checklist">
+        <li>Add / update / remove item with idempotent client-supplied basket id.</li>
+        <li>Sync with Pricing on every change for line totals.</li>
+        <li>Consume <code>ProductPriceChangedIntegrationEvent</code> from Catalog to refresh line prices.</li>
+        <li>Checkout publishes <code>BasketCheckoutStartedIntegrationEvent</code> via outbox; Ordering picks it up.</li>
+      </ul>
+      <div class="label">Non-functional</div>
+      <ul class="checklist">
+        <li>Read p95 &lt; 30 ms (HybridCache).</li>
+        <li>Exactly-once event delivery on checkout — transactional outbox + idempotent consumer in Ordering.</li>
+        <li>Basket TTL 30 days; abandoned-cart event fires at 24h.</li>
+      </ul>
+      <div class="label">Patterns</div>
+      <ul class="checklist">
+        <li><strong>Vertical Slice</strong> per use-case.</li>
+        <li><strong>Decorator</strong> — <code>CachedBasketRepository</code> wraps <code>MartenBasketRepository</code>; manual decoration in <code>DependencyInjection.cs</code>.</li>
+        <li><strong>Outbox</strong> — archive + delete + <code>OutboxMessage</code> insert in one Marten session; <code>OutboxPublisher : BackgroundService</code> drains it.</li>
+        <li><strong>HybridCache</strong> — L1 in-proc + L2 Redis under a single API.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Ordering -->
+  <div class="sub-content" data-sub="services" data-key="ordering">
+    <div class="svc-card svc-clean">
+      <h3><span class="badge badge-blue">Clean / Onion + DDD + Saga</span> Ordering Service</h3>
+      <div class="meta"><span class="badge badge-blue">.NET 10</span><span class="badge badge-blue">EF Core (write)</span><span class="badge badge-blue">Dapper (read)</span><span class="badge badge-blue">SQL Server</span><span class="badge badge-blue">MassTransit Saga</span><span class="badge badge-blue">Outbox</span></div>
+      <p>The richest domain in the platform. Order is a true DDD aggregate root with multiple invariants (line totals must sum to the subtotal; grand total must equal subtotal − discount + tax + shipping; ship and bill addresses captured as value objects). Checkout is an orchestrated saga.</p>
+      <div class="label">Functional</div>
+      <ul class="checklist">
+        <li>Consume <code>BasketCheckoutStartedIntegrationEvent</code> → start checkout saga.</li>
+        <li>Saga states: <code>Submitted</code> → <code>AwaitingStockReservation</code> (Inventory gRPC) → <code>AwaitingPayment</code> (Payment REST) → <code>Confirmed</code>.</li>
+        <li>Payment failure releases the reservation via the Inventory client and cancels the order (compensation).</li>
+        <li>Domain events: <code>OrderSubmitted</code>, <code>OrderConfirmed</code>, <code>OrderCancelled</code>, <code>OrderRefunded</code> → mapped to integration events by the outbox interceptor.</li>
+        <li>Queries: GetOrders (paginated), GetOrderById — Dapper-backed projections.</li>
+      </ul>
+      <div class="label">Non-functional</div>
+      <ul class="checklist">
+        <li>Checkout p95 &lt; 1.5 s end-to-end (gateway → saga → confirmation).</li>
+        <li>Saga state durable in SQL Server; survives pod restart.</li>
+        <li>Exactly-once domain-event publication via outbox + dispatch interceptor on <code>SaveChanges</code>.</li>
+      </ul>
+      <div class="label">Patterns</div>
+      <ul class="checklist">
+        <li><strong>DDD</strong> Aggregate (<code>Order</code>), Value Objects (<code>Money</code>, <code>Address</code>, <code>OrderLine</code>), Domain Events.</li>
+        <li><strong>Hybrid data access</strong> — EF Core for write side, Dapper for read side (CV claim demonstrated here).</li>
+        <li><strong>Saga (orchestrated)</strong> — MassTransit state machine.</li>
+        <li><strong>EF Core SaveChangesInterceptor</strong> — <code>DomainEventsToOutboxInterceptor</code> drains aggregate events into outbox rows in the same transaction.</li>
+        <li><strong>Outbox</strong> for cross-service integration events.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Inventory -->
+  <div class="sub-content" data-sub="services" data-key="inventory">
+    <div class="svc-card svc-layered">
+      <h3><span class="badge badge-teal">Layered (3-tier) + Dapper</span> Inventory Service</h3>
+      <div class="meta"><span class="badge badge-blue">.NET 10</span><span class="badge badge-blue">Dapper</span><span class="badge badge-blue">SQL Server</span><span class="badge badge-blue">gRPC + REST</span></div>
+      <p>Stock management — transactional, perf-critical, schema-stable. A classic Layered architecture (Controllers → Services → Repositories → DataAccess) fits perfectly without over-engineering.</p>
+      <div class="label">Functional</div>
+      <ul class="checklist">
+        <li>gRPC <code>ReserveStock</code> / <code>ReleaseReservation</code> consumed by the Ordering saga.</li>
+        <li>REST endpoints for admin stock listing and upsert (replenishment).</li>
+        <li>Consumes <code>ProductCreatedIntegrationEvent</code> (creates the stock row) and <code>OrderCancelledIntegrationEvent</code> (releases the reservation).</li>
+      </ul>
+      <div class="label">Non-functional</div>
+      <ul class="checklist">
+        <li>Reservation p99 &lt; 50 ms.</li>
+        <li>Strong consistency — every reservation is a single SQL transaction with row-level lock.</li>
+        <li>Dapper used for hot reads (stock-level dashboards) — read p99 &lt; 30 ms.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Payment -->
+  <div class="sub-content" data-sub="services" data-key="payment">
+    <div class="svc-card svc-es">
+      <h3><span class="badge badge-orange">Clean + Event Sourcing</span> Payment Service</h3>
+      <div class="meta"><span class="badge badge-blue">.NET 10</span><span class="badge badge-blue">MongoDB (event store)</span><span class="badge badge-blue">SQL Server (read projection)</span><span class="badge badge-blue">Provider port</span></div>
+      <p>PCI-isolated. Event-sourced because every change must be auditable for compliance, and the read model can be rebuilt from the event log at any time. A simulated provider sits behind <code>IPaymentProvider</code> — Stripe/Adyen adapters implement the same port.</p>
+      <div class="label">Functional</div>
+      <ul class="checklist">
+        <li>Capture for an order → provider authorize → capture → project (or decline / refund).</li>
+        <li>Every state change is an event: <code>PaymentInitiated</code>, <code>PaymentAuthorized</code>, <code>PaymentCaptured</code>, <code>PaymentDeclined</code>, <code>PaymentRefunded</code>.</li>
+        <li>A synchronous projector maintains the SQL read model on every append; no bus traffic — the Ordering saga turns the synchronous outcome into integration events.</li>
+      </ul>
+      <div class="label">Non-functional</div>
+      <ul class="checklist">
+        <li>No PII other than tokenised card identifiers — never stores PAN.</li>
+        <li>Append-only Mongo event store with an optimistic-concurrency unique index; the read projection is rebuildable.</li>
+        <li>A declined card is a domain outcome (200 with status), not a server fault.</li>
+        <li>Idempotency-Key header is mandatory on every mutating endpoint; replays return the first outcome unchanged.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Delivery -->
+  <div class="sub-content" data-sub="services" data-key="delivery">
+    <div class="svc-card svc-hex">
+      <h3><span class="badge badge-green">Hexagonal (Ports &amp; Adapters)</span> Delivery Service</h3>
+      <div class="meta"><span class="badge badge-blue">.NET 10</span><span class="badge badge-blue">MongoDB (2dsphere)</span><span class="badge badge-blue">Geocoding port</span></div>
+      <p>Physical fulfillment only. The domain core never references Mongo, HTTP or the bus; everything external is an adapter behind a port — swapping the geocoder (a deterministic stand-in here; Azure Maps/Google in production) touches zero domain code.</p>
+      <div class="label">Functional</div>
+      <ul class="checklist">
+        <li>Consumes <code>BasketCheckoutStartedIntegrationEvent</code> to capture the shipping address into a local <code>PendingShipment</code> (event-carried state, not a fattened shared contract).</li>
+        <li>Consumes <code>OrderConfirmedIntegrationEvent</code>, schedules the earliest open slot in the matched geo-zone, assigns a driver round-robin, then publishes <code>DeliveryScheduledIntegrationEvent</code>.</li>
+        <li>Digital-only orders are skipped; back-office marks deliveries out-for-delivery and complete (publishes <code>DeliveryCompletedIntegrationEvent</code>).</li>
+        <li>Customer SPA shows slot tracking via the gateway; status pushes arrive through the Notification service.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Notification -->
+  <div class="sub-content" data-sub="services" data-key="notification">
+    <div class="svc-card svc-pipes">
+      <h3><span class="badge badge-purple">Bus consumers + SignalR fan-out</span> Notification Service</h3>
+      <div class="meta"><span class="badge badge-blue">.NET 10</span><span class="badge badge-blue">SignalR</span><span class="badge badge-blue">MassTransit consumers</span><span class="badge badge-blue">MongoDB</span><span class="badge badge-blue">Redis backplane</span></div>
+      <p>Single sink for every customer-facing notification. No domain logic — the complexity is fan-out routing. Consumes integration events, dispatches across channels (in-app via SignalR, email via a pluggable <code>IEmailSender</code>), and persists a history record.</p>
+      <div class="label">Functional</div>
+      <ul class="checklist">
+        <li>Consume <code>OrderPlaced</code>, <code>OrderConfirmed</code>, <code>PaymentFailed</code>, <code>OrderCancelled</code>, <code>OrderRefunded</code>, <code>DeliveryScheduled</code>, <code>DeliveryCompleted</code>.</li>
+        <li>Build a human title/message per event; duplicate <code>SourceEventId</code> is stored once (unique index).</li>
+        <li>Push to the connected browser via the <code>NotificationHub</code>; back-office also receives <code>salesDashboardUpdated</code> on every OrderConfirmed.</li>
+        <li>Persist the notification record for later in-app retrieval and unread counts.</li>
+      </ul>
+      <div class="label">Non-functional</div>
+      <ul class="checklist">
+        <li>SignalR backplane = Redis — works across N pods on AKS.</li>
+        <li>p95 from event published → browser receives push &lt; 1 s.</li>
+        <li>History behind <code>INotificationStore</code> (MongoDB locally; Azure Cosmos DB the documented production sink — same document semantics, a config swap).</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- CustomerSupport -->
+  <div class="sub-content" data-sub="services" data-key="support">
+    <div class="svc-card svc-ws">
+      <h3><span class="badge badge-red">Stateful WebSocket</span> CustomerSupport Service</h3>
+      <div class="meta"><span class="badge badge-blue">.NET 10</span><span class="badge badge-blue">SignalR over WebSocket</span><span class="badge badge-blue">MongoDB transcripts</span><span class="badge badge-blue">Redis presence + backplane</span><span class="badge badge-blue">Sticky session</span></div>
+      <p>Live chat between customers and support agents. The engineering centerpiece is the round-robin assignment queue, not domain rules. Persistent bi-directional WebSocket; sticky sessions on the AKS ingress pin each customer to one pod for the conversation.</p>
+      <div class="label">Functional</div>
+      <ul class="checklist">
+        <li>Customer opens chat → routed to the least-busy available agent via an atomic Redis Lua script (round-robin across replicas); queued FIFO when none free.</li>
+        <li>One open session per customer; agent disconnect re-queues their active sessions.</li>
+        <li>Agent console aggregates active chats; queue position pushed to waiting customers.</li>
+        <li>Full transcript persisted to MongoDB; typing indicators relayed to the other participant.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Reviews -->
+  <div class="sub-content" data-sub="services" data-key="reviews">
+    <div class="svc-card svc-vslice">
+      <h3><span class="badge badge-teal">Vertical Slice + MongoDB</span> Reviews Service</h3>
+      <div class="meta"><span class="badge badge-blue">.NET 10</span><span class="badge badge-blue">MongoDB</span><span class="badge badge-blue">Carter</span><span class="badge badge-blue">MediatR</span><span class="badge badge-blue">MassTransit consumer</span></div>
+      <p>Product reviews and ratings. Doc-shaped, schemaless, eventual consistency. Same vertical-slice idiom as Catalog so the two read identically.</p>
+      <div class="label">Functional</div>
+      <ul class="checklist">
+        <li>Authenticated customers submit one review per product; new reviews start <code>Pending</code> (moderation-first protects the storefront).</li>
+        <li>Moderation pipeline: pending → approved / rejected (idempotent re-moderation, last decision wins).</li>
+        <li>Mongo aggregation pipeline computes the rating summary (average, count, per-star) on the fly.</li>
+        <li>Consumes <code>OrderConfirmedIntegrationEvent</code> to record purchase entitlements locally — the verified-purchase badge comes from the service's own data (event-carried state transfer).</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Reporting -->
+  <div class="sub-content" data-sub="services" data-key="reporting">
+    <div class="svc-card svc-vslice" style="border-left-color:#7d99b8">
+      <h3><span class="badge badge-grey">CQRS read model + QuestPDF</span> Reporting Service</h3>
+      <div class="meta"><span class="badge badge-blue">.NET 10</span><span class="badge badge-blue">MySQL warehouse</span><span class="badge badge-blue">Dapper (reads)</span><span class="badge badge-blue">EF Core (invoice writes)</span><span class="badge badge-blue">QuestPDF</span><span class="badge badge-blue">ClosedXML</span></div>
+      <p>OLAP read model isolated from OLTP. Consumes <code>OrderConfirmed</code> and <code>OrderRefunded</code> through an idempotency inbox and projects denormalised dashboards.</p>
+      <div class="label">Functional</div>
+      <ul class="checklist">
+        <li>Sales KPIs, time-series, revenue breakdown, top products, customer leaderboard, inventory and delivery dashboards.</li>
+        <li>QuestPDF invoice generation (gap-free numbering per year/kind) and ClosedXML Excel exports, stored to Blob with SAS download.</li>
+        <li>Pre-aggregated warehouse refreshed on event arrival; daily scheduled report written once per day.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Gateway -->
+  <div class="sub-content" data-sub="services" data-key="gateway">
+    <div class="svc-card svc-gw">
+      <h3><span class="badge badge-blue">Edge + BFF</span> YARP API Gateway</h3>
+      <div class="meta"><span class="badge badge-blue">.NET 10</span><span class="badge badge-blue">YARP</span><span class="badge badge-blue">Rate limiter</span><span class="badge badge-blue">Cookie validation</span><span class="badge badge-blue">Cookie→JWT</span></div>
+      <p>Single ingress for the SPA — the BFF trust boundary. Routes <code>/api/{**}</code> and <code>/hubs/{**}</code> config-driven to the service clusters, reads the HttpOnly session cookie and mints a short-lived HS256 JWT per request (cached 4 minutes) onto the downstream <code>Authorization</code> header via an <code>ITransformProvider</code>. Adds CSRF double-submit on unsafe cookie-auth calls, per-IP rate limiting (stricter on <code>/api/auth/*</code>), and CORS for the SPA origin.</p>
+    </div>
+  </div>
+
+  <!-- Customer SPA -->
+  <div class="sub-content" data-sub="services" data-key="spa">
+    <div class="svc-card svc-vslice" style="border-left-color:#dd0031">
+      <h3><span class="badge badge-red">Angular 20 · Signals · Zoneless</span> Customer SPA</h3>
+      <div class="meta"><span class="badge badge-blue">Angular 20</span><span class="badge badge-blue">Standalone</span><span class="badge badge-blue">Signals</span><span class="badge badge-blue">NgRx SignalStore</span><span class="badge badge-blue">Bootstrap 5.3</span><span class="badge badge-blue">SignalR</span><span class="badge badge-blue">chart.js</span></div>
+      <p>The storefront. Talks only to the gateway through the dev proxy with relative <code>/api/...</code> and <code>/hubs/...</code> URLs. Session is an HttpOnly cookie with XSRF double-submit — zero tokens in JS-accessible storage.</p>
+      <div class="label">Features</div>
+      <ul class="checklist">
+        <li>Home, catalog browse/search (debounced + switchMap-cancelled), product detail with reviews.</li>
+        <li>Basket with optimistic quantity edits, coupon apply, server-computed totals; checkout with conditional shipping.</li>
+        <li>Orders list/detail with live order-status timeline, delivery tracking, cancel.</li>
+        <li>Account (profile + TOTP MFA enrolment); back-office dashboard (KPI cards + chart.js, live tick).</li>
+        <li>Real-time notification bell and a support-chat widget over SignalR.</li>
+      </ul>
+      <div class="label">Tech &amp; patterns</div>
+      <ul class="checklist">
+        <li>Standalone components, zoneless change detection, <code>@if</code>/<code>@for</code> control flow, <code>@defer</code> below-the-fold.</li>
+        <li>Store-per-concern (NgRx SignalStore): <code>AuthStore</code>, <code>BasketStore</code>, <code>NotificationsStore</code>, <code>SupportChatStore</code>.</li>
+        <li>Functional guards + HTTP interceptors (credentials, problem-details error mapping); typed nonNullable reactive forms.</li>
+        <li>One SignalR connection per hub with auto-reconnect; handlers deregistered on destroy — no listener leaks.</li>
+      </ul>
+      <div class="label">Code links</div>
+      <pre><code>clients/freshcart-customer/src/app/core/auth/auth.store.ts
+clients/freshcart-customer/src/app/core/basket/basket.store.ts
+clients/freshcart-customer/src/app/core/realtime/notifications.store.ts
+clients/freshcart-customer/src/app/features/checkout/checkout.page.ts</code></pre>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- TAB 4: PATTERNS                                                  -->
+<!-- ================================================================ -->
+<div id="tab-patterns" class="tab-content">
+  <div class="hero">
+    <h2>Patterns &amp; principles in use</h2>
+    <p>Every pattern below is anchored to a concrete location in the codebase. Picked at the right granularity — not every CRUD endpoint needs DDD, not every script needs Clean Architecture.</p>
+  </div>
+
+  <div class="card">
+    <h2>Architectural patterns</h2>
+    <div class="card-grid">
+      <div class="mini-card"><h4>Clean Architecture</h4><p>Identity, Ordering, Payment. Domain at the centre; Application defines ports; Infrastructure implements them; Api is the composition root.</p></div>
+      <div class="mini-card"><h4>Onion Architecture</h4><p>Effectively the same shape as Clean; used as the explicit name for Ordering to match the candidate's CV vocabulary.</p></div>
+      <div class="mini-card"><h4>Vertical Slice</h4><p>Catalog, Basket, Reviews. <code>Features/{Aggregate}/{UseCase}/{Command,Query,Handler,Endpoint,Validator}.cs</code>.</p></div>
+      <div class="mini-card"><h4>Layered (3-tier)</h4><p>Inventory. Controllers → Services → Repositories → DataAccess. The right choice when the domain is stable and CRUD-heavy.</p></div>
+      <div class="mini-card"><h4>Hexagonal (Ports &amp; Adapters)</h4><p>Delivery. The domain core depends on ports only; Mongo persistence, the geocoder and the bus are swappable adapters behind them.</p></div>
+      <div class="mini-card"><h4>Modular Monolith</h4><p>The stage <em>before</em> microservices, documented as the evolution baseline in <code>docs/evolution/</code> — the deliberate starting rung of the ladder this repo climbs from.</p></div>
+      <div class="mini-card"><h4>API Gateway / BFF</h4><p>YARP. Single ingress: routes, rate limit, cookie validation, and the cookie→JWT exchange at the trust boundary.</p></div>
+      <div class="mini-card"><h4>Sidecar (via Aspire)</h4><p>The Aspire AppHost models backing services as orchestrated sidecars in DEV; in PROD the same role is played by AKS namespaces + Helm releases.</p></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Application-level patterns</h2>
+    <div class="card-grid">
+      <div class="mini-card"><h4>CQRS</h4><p>Every service. <code>ICommand&lt;T&gt;</code> / <code>IQuery&lt;T&gt;</code> + dedicated handlers via MediatR.</p></div>
+      <div class="mini-card"><h4>Mediator</h4><p>MediatR + <code>ISender</code> at endpoints; never call handlers directly.</p></div>
+      <div class="mini-card"><h4>Pipeline Behavior</h4><p><code>ValidationBehavior</code>, <code>LoggingBehavior</code> wrap every request in a generic, zero-per-handler cross-cutting layer.</p></div>
+      <div class="mini-card"><h4>Domain-Driven Design</h4><p>Ordering — Aggregate (<code>Order</code>), Value Objects (<code>OrderId</code>, <code>Address</code>, <code>Payment</code>), Domain Events.</p></div>
+      <div class="mini-card"><h4>Strongly-Typed IDs</h4><p><code>OrderId.Of(guid)</code> — compile-time prevention of mixing a <code>CustomerId</code> with an <code>OrderId</code>.</p></div>
+      <div class="mini-card"><h4>Repository + Unit of Work</h4><p>Ordering, Inventory. <code>DbContext</code> <strong>is</strong> the UoW — no second abstraction.</p></div>
+      <div class="mini-card"><h4>Decorator</h4><p>Basket — <code>CachedBasketRepository</code> wraps <code>BasketRepository</code> via Scrutor.</p></div>
+      <div class="mini-card"><h4>Specification</h4><p>Inventory — composable read-side predicate objects passed into Dapper queries.</p></div>
+      <div class="mini-card"><h4>Result envelope</h4><p>Used in the pure domain where a domain exception would be too coarse.</p></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Integration &amp; messaging patterns</h2>
+    <div class="card-grid">
+      <div class="mini-card"><h4>Transactional Outbox</h4><p>Basket, Ordering. Business write + <code>OutboxMessage</code> insert in one transaction; <code>OutboxPublisher : BackgroundService</code> drains it. At-least-once delivery → consumers must be idempotent.</p></div>
+      <div class="mini-card"><h4>Inbox (idempotent consumer)</h4><p>Ordering, Payment — every consumer checks the inbox before applying state changes.</p></div>
+      <div class="mini-card"><h4>Saga (orchestrated)</h4><p>Ordering — MassTransit <code>MassTransitStateMachine&lt;CheckoutState&gt;</code>. Each step has a compensating action.</p></div>
+      <div class="mini-card"><h4>Saga (choreographed)</h4><p>Notification — pure event consumer, no central orchestrator needed.</p></div>
+      <div class="mini-card"><h4>Anti-Corruption Layer</h4><p>Payment — the external gateway has a different model; an ACL keeps the gateway's terminology out of the domain.</p></div>
+      <div class="mini-card"><h4>Event Sourcing</h4><p>Payment — Mongo event store. Read model rebuildable.</p></div>
+      <div class="mini-card"><h4>Materialised Read Model</h4><p>Reporting — subscribes to every service's events and projects denormalised views.</p></div>
+      <div class="mini-card"><h4>Pub/Sub + Queue</h4><p>RabbitMQ topics for pub/sub; queues per consumer for work distribution.</p></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Resilience &amp; performance patterns</h2>
+    <div class="card-grid">
+      <div class="mini-card"><h4>Retry with exponential backoff</h4><p><code>AddStandardResilienceHandler()</code> on every typed HttpClient.</p></div>
+      <div class="mini-card"><h4>Circuit Breaker</h4><p>Same bundle, fails fast after threshold; half-opens after cool-down.</p></div>
+      <div class="mini-card"><h4>Timeout</h4><p>Per-call deadline; combined with retry to avoid runaway latency.</p></div>
+      <div class="mini-card"><h4>Bulkhead</h4><p>Isolated connection pools per downstream service.</p></div>
+      <div class="mini-card"><h4>Fallback</h4><p>Catalog returns last-known-good cache entry when Pricing is degraded.</p></div>
+      <div class="mini-card"><h4>HybridCache (L1 + L2)</h4><p>.NET 9+. Sub-ms in-proc + cross-instance Redis under a single API.</p></div>
+      <div class="mini-card"><h4>Rate Limiting</h4><p>YARP fixed-window limiter per route; per-client keyed limiter for write endpoints.</p></div>
+      <div class="mini-card"><h4>Idempotency Key</h4><p>Required on every mutating endpoint that may be retried.</p></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>SOLID + DRY + KISS + YAGNI in this codebase</h2>
+    <table>
+      <thead><tr><th>Principle</th><th>How it shows up</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Single Responsibility</strong></td><td>One handler per command / query; behaviour on the aggregate, not on a service.</td></tr>
+        <tr><td><strong>Open / Closed</strong></td><td>Pipeline behaviors extend MediatR without modifying handlers; <code>OutboundUrlAllowListHandler</code> extends HttpClient without changing call sites.</td></tr>
+        <tr><td><strong>Liskov Substitution</strong></td><td><code>CachedBasketRepository</code> is a drop-in for <code>BasketRepository</code> — same contract, same semantics, additional caching.</td></tr>
+        <tr><td><strong>Interface Segregation</strong></td><td><code>IRefreshTokenService</code> is narrow — Issue, Rotate, RevokeAll. No <code>DoEverythingAsync</code>.</td></tr>
+        <tr><td><strong>Dependency Inversion</strong></td><td>Application layer defines ports (<code>IAccessTokenIssuer</code>, <code>IIdentityAuditLog</code>); Infrastructure implements them.</td></tr>
+        <tr><td><strong>DRY</strong></td><td>Single <code>BuildingBlocks</code> library carries CQRS abstractions, behaviors, exceptions and ProblemDetails mapping for every service.</td></tr>
+        <tr><td><strong>KISS</strong></td><td>No <code>IRepository&lt;T&gt;</code> generic abstraction over EF; no <code>IUnitOfWork</code> over the DbContext.</td></tr>
+        <tr><td><strong>YAGNI</strong></td><td>No <code>BaseEntity</code> god class; audit columns live where they are needed, not everywhere.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- ================================================================ -->
+<!-- TAB 5: ANIMATED FLOWS                                            -->
+<!-- ================================================================ -->
+<div id="tab-flows" class="tab-content">
+  <div class="hero">
+    <h2>Animated flows — watch the system work</h2>
+    <p>Each diagram below is a synchronised animation showing the path of a request through the platform. Hover or click a flow to restart it.</p>
+  </div>
+
+  <div class="card">
+    <h2>Flow 1 — Customer sign-in (cookie-first)</h2>
+    <p>Browser → Front Door (WAF) → YARP Gateway → Identity service → SQL Server → set HttpOnly cookie. Anti-forgery token issued on the way back.</p>
+    <div class="af" id="flow-signin">
+      <div class="af-title">Cookie sign-in flow — HttpOnly + Secure + SameSite=Strict</div>
+      <div class="af-row">
+        <div class="af-n n-browser"  data-step="1">Browser<div class="sub">Angular SPA</div></div>
+        <div class="af-arr" data-arr="1">→</div>
+        <div class="af-n n-azure"    data-step="2">Front Door<div class="sub">+ WAF</div></div>
+        <div class="af-arr" data-arr="2">→</div>
+        <div class="af-n n-yarp"     data-step="3">YARP<div class="sub">gateway</div></div>
+        <div class="af-arr" data-arr="3">→</div>
+        <div class="af-n n-id"       data-step="4">Identity API<div class="sub">/auth/sign-in</div></div>
+        <div class="af-arr" data-arr="4">→</div>
+        <div class="af-n n-sql"      data-step="5">Azure SQL<div class="sub">verify Argon2id</div></div>
+      </div>
+      <div class="af-arr-down" data-arr="5">↓</div>
+      <div class="af-row">
+        <div class="af-n n-id"       data-step="6">Set-Cookie<div class="sub">FreshCart.Session</div></div>
+        <div class="af-arr" data-arr="6">→</div>
+        <div class="af-n n-id"       data-step="7">XSRF-TOKEN<div class="sub">double-submit</div></div>
+        <div class="af-arr" data-arr="7">→</div>
+        <div class="af-n n-redis"    data-step="8">Redis<div class="sub">Data Protection ring</div></div>
+        <div class="af-arr" data-arr="8">→</div>
+        <div class="af-n n-browser"  data-step="9">Browser<div class="sub">profile rendered</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Flow 2 — Checkout saga (orchestrated)</h2>
+    <p>SPA → Gateway → Basket → publishes <code>BasketCheckoutStartedIntegrationEvent</code> via outbox → Ordering saga reserves stock in Inventory (gRPC) then captures payment in Payment (REST) → confirms and publishes <code>OrderConfirmed</code>. A payment failure releases the reservation and cancels the order.</p>
+    <div class="af" id="flow-checkout">
+      <div class="af-title">Checkout saga — payment failure compensates by releasing the reservation</div>
+      <div class="af-row">
+        <div class="af-n n-browser" data-step="1">SPA<div class="sub">checkout()</div></div>
+        <div class="af-arr" data-arr="1">→</div>
+        <div class="af-n n-yarp"    data-step="2">YARP<div class="sub">/api/basket/checkout</div></div>
+        <div class="af-arr" data-arr="2">→</div>
+        <div class="af-n n-bsk"     data-step="3">Basket<div class="sub">CheckoutCommand</div></div>
+        <div class="af-arr" data-arr="3">→</div>
+        <div class="af-n n-pg"      data-step="4">Postgres<div class="sub">outbox + archive + delete</div></div>
+        <div class="af-arr" data-arr="4">→</div>
+        <div class="af-n n-rabbit"  data-step="5">RabbitMQ<div class="sub">BasketCheckoutStarted</div></div>
+      </div>
+      <div class="af-arr-down" data-arr="5">↓</div>
+      <div class="af-row">
+        <div class="af-n n-ord"     data-step="6">Ordering<div class="sub">saga: Submitted</div></div>
+        <div class="af-arr" data-arr="6">→</div>
+        <div class="af-n n-inv"     data-step="7">Inventory<div class="sub">ReserveStock (gRPC)</div></div>
+        <div class="af-arr" data-arr="7">→</div>
+        <div class="af-n n-pay"     data-step="8">Payment<div class="sub">Capture (REST + idempotency)</div></div>
+        <div class="af-arr" data-arr="8">→</div>
+        <div class="af-n n-ord"     data-step="9">Ordering<div class="sub">MarkPaid → Confirm</div></div>
+      </div>
+      <div class="af-arr-down" data-arr="9">↓</div>
+      <div class="af-row">
+        <div class="af-n n-sql"     data-step="10">SQL Server<div class="sub">outbox + saga state</div></div>
+        <div class="af-arr" data-arr="10">→</div>
+        <div class="af-n n-rabbit"  data-step="11">RabbitMQ<div class="sub">OrderConfirmed event</div></div>
+        <div class="af-arr" data-arr="11">→</div>
+        <div class="af-n n-not"     data-step="12">Notification<div class="sub">SignalR push</div></div>
+        <div class="af-arr" data-arr="12">→</div>
+        <div class="af-n n-del"     data-step="13">Delivery<div class="sub">schedule slot</div></div>
+        <div class="af-arr" data-arr="13">→</div>
+        <div class="af-n n-browser" data-step="14">SPA<div class="sub">"Order placed"</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Flow 3 — Transactional outbox guarantees</h2>
+    <p>One transaction commits business state + outbox row. A background <code>OutboxPublisher</code> drains the table and publishes to the bus. Consumers must be idempotent because delivery is at-least-once.</p>
+    <div class="af" id="flow-outbox">
+      <div class="af-title">Transactional outbox — defeats the dual-write problem</div>
+      <div class="af-row">
+        <div class="af-n n-bsk"     data-step="1">CheckoutHandler<div class="sub">Application layer</div></div>
+        <div class="af-arr" data-arr="1">→</div>
+        <div class="af-n n-pg"      data-step="2">Marten session<div class="sub">one transaction</div></div>
+        <div class="af-arr" data-arr="2">→</div>
+        <div class="af-n n-pg"      data-step="3">archive + delete basket<div class="sub">business state</div></div>
+        <div class="af-arr" data-arr="3">→</div>
+        <div class="af-n n-pg"      data-step="4">store OutboxMessage<div class="sub">serialized event</div></div>
+        <div class="af-arr" data-arr="4">→</div>
+        <div class="af-n n-pg"      data-step="5">COMMIT<div class="sub">atomic</div></div>
+      </div>
+      <div class="af-arr-down" data-arr="5">↓</div>
+      <div class="af-row">
+        <div class="af-n n-bsk"     data-step="6">OutboxPublisher<div class="sub">BackgroundService</div></div>
+        <div class="af-arr" data-arr="6">→</div>
+        <div class="af-n n-pg"      data-step="7">SELECT WHERE ProcessedOn IS NULL<div class="sub">batch</div></div>
+        <div class="af-arr" data-arr="7">→</div>
+        <div class="af-n n-rabbit"  data-step="8">Publish<div class="sub">MassTransit / Service Bus</div></div>
+        <div class="af-arr" data-arr="8">→</div>
+        <div class="af-n n-pg"      data-step="9">UPDATE ProcessedOn<div class="sub">mark done</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Flow 4 — Real-time notification (event → SignalR → browser)</h2>
+    <div class="af" id="flow-notify">
+      <div class="af-title">Order placed → instant in-app push</div>
+      <div class="af-row">
+        <div class="af-n n-ord"     data-step="1">Ordering<div class="sub">publishes OrderPlaced</div></div>
+        <div class="af-arr" data-arr="1">→</div>
+        <div class="af-n n-rabbit"  data-step="2">RabbitMQ<div class="sub">topic exchange</div></div>
+        <div class="af-arr" data-arr="2">→</div>
+        <div class="af-n n-not"     data-step="3">Notification<div class="sub">IConsumer&lt;T&gt;</div></div>
+        <div class="af-arr" data-arr="3">→</div>
+        <div class="af-n n-cosmos"  data-step="4">MongoDB<div class="sub">persist record</div></div>
+      </div>
+      <div class="af-arr-down" data-arr="4">↓</div>
+      <div class="af-row">
+        <div class="af-n n-not"     data-step="5">NotificationHub<div class="sub">SignalR</div></div>
+        <div class="af-arr" data-arr="5">→</div>
+        <div class="af-n n-redis"   data-step="6">Redis backplane<div class="sub">cross-pod fan-out</div></div>
+        <div class="af-arr" data-arr="6">→</div>
+        <div class="af-n n-browser" data-step="7">Browser<div class="sub">toast appears</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Flow 5 — CI/CD pipeline (push → AKS)</h2>
+    <div class="af" id="flow-cicd">
+      <div class="af-title">Commit to main → image in ACR → blue/green into AKS prod</div>
+      <div class="af-row">
+        <div class="af-n n-browser" data-step="1">git push<div class="sub">main</div></div>
+        <div class="af-arr" data-arr="1">→</div>
+        <div class="af-n n-ci"      data-step="2">GitHub Actions<div class="sub">build + test</div></div>
+        <div class="af-arr" data-arr="2">→</div>
+        <div class="af-n n-ci"      data-step="3">SonarCloud<div class="sub">quality gate</div></div>
+        <div class="af-arr" data-arr="3">→</div>
+        <div class="af-n n-ci"      data-step="4">Trivy scan<div class="sub">HIGH+ fails</div></div>
+        <div class="af-arr" data-arr="4">→</div>
+        <div class="af-n n-ci"      data-step="5">Cosign sign<div class="sub">image integrity</div></div>
+      </div>
+      <div class="af-arr-down" data-arr="5">↓</div>
+      <div class="af-row">
+        <div class="af-n n-azure"   data-step="6">ACR push<div class="sub">freshcart/identity:sha</div></div>
+        <div class="af-arr" data-arr="6">→</div>
+        <div class="af-n n-azure"   data-step="7">helm upgrade<div class="sub">DEV (auto)</div></div>
+        <div class="af-arr" data-arr="7">→</div>
+        <div class="af-n n-azure"   data-step="8">STAGING<div class="sub">1 approver</div></div>
+        <div class="af-arr" data-arr="8">→</div>
+        <div class="af-n n-azure"   data-step="9">PROD blue/green<div class="sub">2 approvers</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- TAB 6: SECURITY                                                  -->
+<!-- ================================================================ -->
+<div id="tab-security" class="tab-content">
+  <div class="hero">
+    <h2>Security &amp; OWASP Top 10 2025 mapping</h2>
+    <p>Every category in the 2025 release is mapped to a concrete control in this codebase. Controls are testable — integration tests assert the cookie flags, the headers, the status codes; pipelines fail on vulnerable packages and HIGH+ container CVEs.</p>
+  </div>
+
+  <div class="card">
+    <h2>OWASP Top 10 — FreshCart control map</h2>
+    <table>
+      <thead><tr><th>Rank</th><th>Risk</th><th>Control</th><th>Where</th></tr></thead>
+      <tbody>
+        <tr><td>A01</td><td>Broken Access Control (now incl. SSRF)</td><td>Per-endpoint <code>[Authorize(Policy = …)]</code>; resource-based auth handlers (BOLA defence); <code>OutboundUrlAllowListHandler</code> rejects non-allowlisted hosts</td><td><code>BuildingBlocks/Security/OutboundUrlAllowListHandler.cs</code></td></tr>
+        <tr><td>A02</td><td>Cryptographic Failures</td><td>HTTPS-only + HSTS preload; TLS 1.3 min; Azure Key Vault; column-level encryption for PII; SQL TDE</td><td>Bicep + per-service value converters</td></tr>
+        <tr><td>A03</td><td>Injection</td><td>EF Core + Dapper parameterised only; FluentValidation on every command; Angular sanitisation</td><td><code>ValidationBehavior.cs</code></td></tr>
+        <tr><td>A04</td><td>Insecure Design</td><td>ADR per service; STRIDE threat model per bounded context</td><td><code>docs/adr/</code>, <code>docs/threat-models/</code></td></tr>
+        <tr><td>A05</td><td>Security Misconfiguration</td><td>NWebsec-style headers via <code>UseFreshCartSecurityHeaders()</code>: CSP strict, X-Frame-Options=DENY, X-Content-Type-Options=nosniff, Referrer-Policy, Permissions-Policy, COOP/COEP/CORP</td><td><code>BuildingBlocks/Security/SecurityHeadersMiddleware.cs</code></td></tr>
+        <tr><td>A06</td><td>Software Supply Chain Failures</td><td>Dependabot weekly; <code>dotnet list package --vulnerable</code> in CI; Trivy fails on HIGH+; SBOM (CycloneDX); Cosign image signing</td><td><code>.github/workflows/</code> + <code>azure-pipelines/templates/container-template.yaml</code></td></tr>
+        <tr><td>A07</td><td>ID &amp; Auth Failures</td><td>ASP.NET Identity + Argon2id; lockout 5/15 min; HttpOnly + Secure + SameSite=Strict cookie; anti-forgery double-submit; MFA TOTP</td><td><code>Identity.Infrastructure/Cryptography/Argon2PasswordHasher.cs</code></td></tr>
+        <tr><td>A08</td><td>Software / Data Integrity</td><td>Cosign-signed images; admission controller verifies signatures in PROD; transactional outbox + inbox prevents tampered events</td><td>AKS admission policy</td></tr>
+        <tr><td>A09</td><td>Security Logging &amp; Monitoring</td><td>Serilog → App Insights + Log Analytics with correlation id; append-only <code>AuditEvents</code> per service; security event sink</td><td>Every service + <code>EntityFrameworkAuditLog.cs</code></td></tr>
+        <tr><td>A10</td><td>(merged into A01) explicit SSRF defence</td><td><code>OutboundUrlAllowListHandler</code> + AKS egress NetworkPolicy blocking IMDS</td><td><code>deploy/k8s/policies/</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Authentication flow — cookie-first browser sign-in</h2>
+    <div class="af">
+      <div class="af-title">Why HttpOnly + Secure + SameSite=Strict beats a JS-readable JWT</div>
+      <div class="af-row">
+        <div class="af-n n-browser on">XSS payload<div class="sub">attacker injects</div></div>
+        <div class="af-arr on">→</div>
+        <div class="af-n n-browser on">document.cookie<div class="sub">blocked by HttpOnly</div></div>
+        <div class="af-arr on">✗</div>
+        <div class="af-n n-id on">No exfiltration<div class="sub">token theft fails</div></div>
+      </div>
+    </div>
+    <ul class="checklist">
+      <li><strong>HttpOnly</strong> — JavaScript cannot read the cookie.</li>
+      <li><strong>Secure</strong> — cookie sent only over HTTPS.</li>
+      <li><strong>SameSite=Strict</strong> — cookie not sent on cross-site requests; defeats most CSRF without anti-forgery.</li>
+      <li><strong>Anti-forgery double-submit</strong> — defence-in-depth: XSRF-TOKEN cookie + X-XSRF-TOKEN header must match.</li>
+      <li><strong>Sliding expiration</strong> — 8 hours idle; full re-auth after 24 hours.</li>
+      <li><strong>Server-side invalidation</strong> — sign-out updates security stamp; existing cookies are invalidated on next request.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Service-to-service authentication — JWT client credentials</h2>
+    <ul class="checklist">
+      <li>HS256-signed JWT (signing key in Azure Key Vault; rotated quarterly).</li>
+      <li>Access token lifetime: 15 minutes. Refresh token lifetime: 14 days.</li>
+      <li>Refresh-token rotation on every refresh; <strong>reuse detection</strong> revokes the entire token family.</li>
+      <li>Plaintext token returned exactly once at issue/rotate; SHA-256 hash persisted.</li>
+      <li>Per-endpoint authorisation policies — <code>Customer</code>, <code>SupportAgent</code>, <code>Administrator</code> — apply to either scheme.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Defence-in-depth</h2>
+    <table>
+      <thead><tr><th>Layer</th><th>Control</th></tr></thead>
+      <tbody>
+        <tr><td>Edge</td><td>Azure Front Door + WAF (managed rule set, OWASP CRS)</td></tr>
+        <tr><td>Network</td><td>AKS NetworkPolicy default-deny + per-service allow list; private endpoints for every PaaS resource; egress to <code>169.254.169.254</code> blocked</td></tr>
+        <tr><td>Cluster</td><td>Workload Identity (no client secrets); Pod Security Standards restricted; read-only root FS; non-root user</td></tr>
+        <tr><td>Image</td><td>Multi-stage Dockerfile; chiselled runtime; Trivy scan; Cosign signature verified on admission</td></tr>
+        <tr><td>Application</td><td>FluentValidation; CustomExceptionHandler; security headers middleware; outbound URL allow-list</td></tr>
+        <tr><td>Data</td><td>TDE on SQL; column-level encryption for PII; secrets in Key Vault</td></tr>
+        <tr><td>Identity</td><td>Argon2id; MFA; lockout; refresh-token reuse detection</td></tr>
+        <tr><td>Observability</td><td>Audit log table per service; security event sink; correlation id end-to-end</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- TAB 7: DEV GUIDE                                                 -->
+<!-- ================================================================ -->
+<div id="tab-devguide" class="tab-content">
+  <div class="hero">
+    <h2>Developer guide — boot, build, contribute</h2>
+    <p>From clone to working local platform in five commands. Everything below assumes Docker Desktop and the .NET 10 SDK are installed (pinned in <code>global.json</code>).</p>
+  </div>
+
+  <div class="card">
+    <h2>Prerequisites</h2>
+    <ul class="checklist">
+      <li>Windows 11 (this repo) or macOS / Linux.</li>
+      <li>.NET 10 SDK (auto-installed by <code>global.json</code> roll-forward).</li>
+      <li>Docker Desktop with WSL2 backend.</li>
+      <li>Node.js 22 LTS (Angular workspace).</li>
+      <li>Azure CLI (for cloud deploys).</li>
+      <li>kubectl + helm (for AKS).</li>
+      <li>VS Code / Visual Studio / Rider — any will work.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Local boot</h2>
+    <pre><code># 1. Backing services
+docker compose -f deploy/docker/docker-compose.yaml up -d
+
+# 2. Whole stack via Aspire (recommended)
+dotnet run --project src/AspireAppHost/FreshCart.AppHost
+
+# 3. Or one service at a time
+dotnet run --project src/Services/Identity/FreshCart.Identity.Api
+
+# 4. Customer SPA
+cd clients/freshcart-customer
+npm install
+npm start                     # http://localhost:4200
+
+# 5. Run the full test suite
+dotnet test src/FreshCart.sln
+cd tests/e2e &amp;&amp; npx playwright test</code></pre>
+
+    <p>Once Aspire is up, the dashboard at <a href="http://localhost:15888" target="_blank">http://localhost:15888</a> shows every running container and project, plus live logs, traces and metrics.</p>
+  </div>
+
+  <div class="card">
+    <h2>Repository layout</h2>
+    <pre class="tree">FreshCart/
+├── <span class="dir">README.md</span>                          <span class="comment"># elevator pitch</span>
+├── <span class="dir">ARCHITECTURE.md</span>                    <span class="comment"># C4 narrative</span>
+├── <span class="dir">docs/</span>
+│   ├── <span class="dir">CONVENTIONS.md</span>                 <span class="comment"># naming, style, async, LINQ discipline</span>
+│   ├── <span class="dir">adr/</span>                           <span class="comment"># architecture decision records</span>
+│   ├── <span class="dir">threat-models/</span>                 <span class="comment"># STRIDE per service</span>
+│   ├── <span class="dir">interview-tour/</span>                <span class="comment"># 90-second pitch per service</span>
+│   └── <span class="dir">FreshCart_Architecture_Guide.html</span> <span class="comment"># this file</span>
+├── <span class="dir">src/</span>
+│   ├── <span class="dir">BuildingBlocks/</span>                <span class="comment"># shared cross-cutting libraries</span>
+│   ├── <span class="dir">Services/</span>                      <span class="comment"># bounded contexts</span>
+│   │   ├── <span class="dir">Identity/</span>                  <span class="comment"># Clean Arch</span>
+│   │   ├── <span class="dir">Catalog/</span>                   <span class="comment"># Vertical Slice</span>
+│   │   ├── <span class="dir">Pricing/</span>                   <span class="comment"># gRPC</span>
+│   │   ├── <span class="dir">Basket/</span>                    <span class="comment"># VSlice + Outbox</span>
+│   │   ├── <span class="dir">Ordering/</span>                  <span class="comment"># Clean + DDD + Saga</span>
+│   │   ├── <span class="dir">Inventory/</span>                 <span class="comment"># Layered</span>
+│   │   ├── <span class="dir">Payment/</span>                   <span class="comment"># Clean + Event Sourcing</span>
+│   │   ├── <span class="dir">Delivery/</span>                  <span class="comment"># Hexagonal</span>
+│   │   ├── <span class="dir">Notification/</span>              <span class="comment"># SignalR consumer</span>
+│   │   ├── <span class="dir">CustomerSupport/</span>           <span class="comment"># WebSocket chat</span>
+│   │   ├── <span class="dir">Reviews/</span>                   <span class="comment"># VSlice + Mongo</span>
+│   │   └── <span class="dir">Reporting/</span>                 <span class="comment"># CQRS read model</span>
+│   ├── <span class="dir">ApiGateways/</span>                   <span class="comment"># YARP BFF gateway</span>
+│   └── <span class="dir">AspireAppHost/</span>                 <span class="comment"># local orchestration</span>
+├── <span class="dir">clients/</span>
+│   └── <span class="dir">freshcart-customer/</span>            <span class="comment"># Angular 20 SPA (storefront + role-gated back-office)</span>
+├── <span class="dir">infra/</span>                             <span class="comment"># Bicep modules</span>
+├── <span class="dir">deploy/</span>
+│   ├── <span class="dir">helm/</span>                          <span class="comment"># one chart per service + umbrella</span>
+│   ├── <span class="dir">k8s/</span>                           <span class="comment"># raw manifests for teaching</span>
+│   └── <span class="dir">docker/</span>                        <span class="comment"># compose + local config</span>
+├── <span class="dir">azure-pipelines/</span>                   <span class="comment"># multi-stage YAML (Azure DevOps)</span>
+├── <span class="dir">.github/workflows/</span>                 <span class="comment"># GitHub Actions</span>
+├── <span class="dir">gitops/</span>                            <span class="comment"># Flux / Argo manifests</span>
+└── <span class="dir">tests/</span>
+    ├── <span class="dir">integration/</span>                   <span class="comment"># Testcontainers</span>
+    ├── <span class="dir">contract/</span>                      <span class="comment"># Pact</span>
+    ├── <span class="dir">load/</span>                          <span class="comment"># k6</span>
+    └── <span class="dir">e2e/</span>                           <span class="comment"># Playwright</span></pre>
+  </div>
+
+  <div class="card">
+    <h2>Coding conventions (excerpt)</h2>
+    <p>Full version: <code>docs/CONVENTIONS.md</code>.</p>
+    <ul class="checklist">
+      <li><strong>Names are full words.</strong> <code>productCatalogRepository</code>, never <code>repo</code>. <code>pendingOutboxMessages</code>, never <code>pendingMsgs</code>. No single-letter locals outside the tightest of loops.</li>
+      <li><strong>Methods read like sentences.</strong> <code>await refreshTokenService.RotateAsync(...)</code> describes intent; <code>ProcessAsync</code> does not.</li>
+      <li><strong>No filler comments.</strong> Comments explain the <em>why</em>; well-named identifiers explain the <em>what</em>.</li>
+      <li><strong>Records</strong> for DTOs, commands, queries, value objects. <strong>Classes</strong> for entities, aggregates, services.</li>
+      <li><strong>Every async method takes a CancellationToken</strong> and forwards it.</li>
+      <li><strong>LINQ stays in IQueryable</strong> until the explicit materialisation call (<code>ToListAsync</code>, <code>FirstOrDefaultAsync</code>).</li>
+      <li><strong>AsNoTracking()</strong> on every read path. Tracking is opt-in.</li>
+      <li><strong>Constructor injection</strong> only. No service locator.</li>
+      <li><strong>Conventional Commits</strong> — <code>feat(catalog): add product search vertical slice</code>.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Adding a new feature — the cookbook</h2>
+    <ol class="steps">
+      <li>Identify the bounded context the feature belongs to. If it crosses two contexts, model the cross-context part as an integration event.</li>
+      <li>Decide command or query. Command = write; Query = read.</li>
+      <li>Create the feature folder under the service's <code>Features/&lt;Aggregate&gt;/&lt;UseCase&gt;/</code> (Vertical Slice) or under <code>Application/&lt;Aggregate&gt;/Commands|Queries/</code> (Clean Architecture).</li>
+      <li>Write the record (Command / Query) and its handler. Add a FluentValidation validator.</li>
+      <li>For Clean Architecture services, declare any new infrastructure ports as <code>I…</code> interfaces in <code>Application/Common/Abstractions</code>. Implement them in <code>Infrastructure</code>.</li>
+      <li>Write the Carter endpoint that dispatches via <code>ISender</code>.</li>
+      <li>Write the unit test for the handler. Write the integration test for the endpoint (Testcontainers).</li>
+      <li>If the change emits an integration event, add the <code>OutboxMessage</code> insert in the same EF transaction.</li>
+      <li>Update the relevant ADR or interview-tour card if the design decision is novel.</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- TAB 8: DEVOPS                                                    -->
+<!-- ================================================================ -->
+<div id="tab-devops" class="tab-content">
+  <div class="hero">
+    <h2>DevOps &amp; Azure — production-ready end to end</h2>
+    <p>Two equivalent CI/CD paths ship in this repo: Azure DevOps multi-stage pipelines (AZ-204 reference) and GitHub Actions reusable workflows. Same gates, same artefacts, same deployment story.</p>
+  </div>
+
+  <div class="card">
+    <h2>Containerisation</h2>
+    <p>Every service ships a multi-stage Dockerfile:</p>
+    <ul class="checklist">
+      <li>Build stage on <code>mcr.microsoft.com/dotnet/sdk:10.0</code> — restore, build, publish.</li>
+      <li>Runtime on <code>mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled</code> — distroless, non-root, &lt; 100 MB.</li>
+      <li>Layer cache: copy <code>.csproj</code> + central package files first; full source second; restore caches as long as no project file changed.</li>
+      <li>OCI labels for source/version/revision/created.</li>
+    </ul>
+    <pre><code>FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+COPY ["global.json", "Directory.Build.props", "Directory.Packages.props", "./"]
+COPY ["src/Services/Identity/FreshCart.Identity.Api/FreshCart.Identity.Api.csproj", "src/Services/Identity/FreshCart.Identity.Api/"]
+# ... csproj copies omitted ...
+RUN dotnet restore "src/Services/Identity/FreshCart.Identity.Api/FreshCart.Identity.Api.csproj"
+COPY . .
+WORKDIR /src/src/Services/Identity/FreshCart.Identity.Api
+RUN dotnet publish "FreshCart.Identity.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled AS runtime
+WORKDIR /app
+EXPOSE 8080
+COPY --from=build /app/publish .
+ENV ASPNETCORE_HTTP_PORTS=8080
+ENTRYPOINT ["dotnet", "FreshCart.Identity.Api.dll"]</code></pre>
+  </div>
+
+  <div class="card">
+    <h2>Azure infrastructure (Bicep)</h2>
+    <p>One <code>main.bicep</code> per environment composes the modules below. Re-provisionable from zero with <code>az deployment sub create</code>.</p>
+    <table>
+      <thead><tr><th>Module</th><th>Provisioned resource</th></tr></thead>
+      <tbody>
+        <tr><td><code>aks.bicep</code></td><td>AKS cluster — system + user node pools, autoscaler 2–10, Azure CNI, Workload Identity enabled</td></tr>
+        <tr><td><code>acr.bicep</code></td><td>Azure Container Registry (Premium) with geo-replication</td></tr>
+        <tr><td><code>sql.bicep</code></td><td>Azure SQL Database (S2 dev / S3 prod) for Identity, Ordering, Inventory, Payment-read</td></tr>
+        <tr><td><code>postgres.bicep</code></td><td>Azure Database for PostgreSQL Flexible Server for Catalog, Basket</td></tr>
+        <tr><td><code>mysql.bicep</code></td><td>Azure Database for MySQL for Reporting</td></tr>
+        <tr><td><code>cosmos.bicep</code></td><td>Cosmos DB (SQL API) for Notification</td></tr>
+        <tr><td><code>redis.bicep</code></td><td>Azure Cache for Redis (Standard)</td></tr>
+        <tr><td><code>service-bus.bicep</code></td><td>Azure Service Bus (Standard) for PROD eventing</td></tr>
+        <tr><td><code>keyvault.bicep</code></td><td>Azure Key Vault with private endpoint</td></tr>
+        <tr><td><code>app-config.bicep</code></td><td>Azure App Configuration + feature flags</td></tr>
+        <tr><td><code>log-analytics.bicep</code></td><td>Log Analytics workspace + Application Insights component</td></tr>
+        <tr><td><code>front-door.bicep</code></td><td>Azure Front Door Standard + WAF managed rule set</td></tr>
+        <tr><td><code>storage.bicep</code></td><td>Blob containers for product images, reports, uploads</td></tr>
+        <tr><td><code>network.bicep</code></td><td>VNet, subnets, NSG, private endpoints for every PaaS resource</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Kubernetes deployment (Helm + raw manifests)</h2>
+    <p>Each service ships:</p>
+    <ul class="checklist">
+      <li><strong>One Helm chart</strong> under <code>deploy/helm/&lt;service&gt;/</code> with <code>values-dev.yaml</code>, <code>values-staging.yaml</code>, <code>values-prod.yaml</code>.</li>
+      <li><strong>Templates</strong>: Deployment, Service, Ingress, ConfigMap, Secret, HorizontalPodAutoscaler, ServiceMonitor (Prometheus), NetworkPolicy, PodDisruptionBudget.</li>
+      <li><strong>Probes</strong>: <code>livenessProbe</code> → <code>/alive</code>; <code>readinessProbe</code> → <code>/ready</code>; <code>startupProbe</code> → <code>/health</code>.</li>
+      <li><strong>Resource requests / limits</strong> set per environment.</li>
+      <li><strong>Pod Security Standards</strong> "restricted" — runAsNonRoot, readOnlyRootFilesystem, no privilege escalation, no host network.</li>
+      <li>Raw manifests under <code>deploy/k8s/&lt;service&gt;/</code> for teaching/reference (the same content the Helm chart renders).</li>
+    </ul>
+    <pre><code># Install Identity to AKS DEV
+az aks get-credentials -g freshcart-dev -n freshcart-dev-aks --overwrite-existing
+helm upgrade --install identity deploy/helm/identity \
+  --namespace freshcart --create-namespace \
+  --values deploy/helm/identity/values-dev.yaml \
+  --set image.tag=$(git rev-parse --short HEAD)</code></pre>
+  </div>
+
+  <div class="card">
+    <h2>CI/CD — Azure DevOps multi-stage pipeline</h2>
+    <p>Reference pipeline for AZ-204 alignment. Path-filter triggers so only the changed service rebuilds.</p>
+    <pre><code>Stage 1  Build &amp; Quality      restore → build → test → coverage → SonarCloud → vuln scan → publish artifact
+Stage 2  Container &amp; Push     docker build → Trivy scan → Cosign sign → ACR push
+Stage 3  Deploy → DEV          helm upgrade --install (auto on main)
+Stage 4  Deploy → STAGING      helm upgrade (1 approver)
+Stage 5  Deploy → PROD         blue/green via Helm + service selector swap (2 approvers)</code></pre>
+  </div>
+
+  <div class="card">
+    <h2>CI/CD — GitHub Actions (mirror)</h2>
+    <p>Same gates and stages reachable from a GitHub-hosted clone:</p>
+    <pre><code>.github/workflows/
+├── identity-ci.yml            # per-service CI
+├── reusable-build-test.yml    # called by every per-service workflow
+├── reusable-container.yml     # build → Trivy → Cosign → GHCR / ACR
+├── reusable-helm-deploy.yml   # azure/login (OIDC) → helm upgrade
+├── codeql.yml                 # security analysis
+├── e2e-playwright.yml         # nightly + on-PR
+└── infrastructure.yml         # az deployment what-if + create on tag</code></pre>
+    <p>OIDC federated identity is used — <strong>no client secrets stored in GitHub</strong>. The workflow exchanges its OIDC token for an Azure AD token, scoped to the freshcart deployment role.</p>
+  </div>
+
+  <div class="card">
+    <h2>GitOps overlay</h2>
+    <p>Optional and demonstrates the pull-based model alongside the classic push pipeline.</p>
+    <ul class="checklist">
+      <li><strong>Flux</strong> or <strong>ArgoCD</strong> Application manifests under <code>gitops/</code>.</li>
+      <li>Main pipeline writes new image tags to a <code>gitops/</code> branch.</li>
+      <li>Flux reconciles the cluster from that branch — eventually consistent, audit-friendly.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Observability stack</h2>
+    <ul class="checklist">
+      <li><strong>OpenTelemetry SDK</strong> in every service → OTLP → OTel Collector → fan-out to App Insights, Managed Prometheus, Log Analytics.</li>
+      <li><strong>Azure Managed Grafana</strong> dashboards: per-service RED (Rate, Errors, Duration) + USE (Utilization, Saturation, Errors).</li>
+      <li><strong>Tail-based sampling</strong> at the collector gateway tier in PROD to keep trace volume bounded.</li>
+      <li><strong>Alerts</strong> in Azure Monitor wired to PagerDuty / Slack on SLO breach.</li>
+      <li><strong>Synthetic monitoring</strong> via Front Door health probes + Application Insights availability tests.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- TAB 9: TESTING                                                   -->
+<!-- ================================================================ -->
+<div id="tab-testing" class="tab-content">
+  <div class="hero">
+    <h2>Testing strategy — unit → integration → contract → e2e → load</h2>
+    <p>Each layer has a single responsibility and a defined scope. Test pyramid weighted by speed of feedback: fast unit tests run on every keystroke; slow load tests run nightly.</p>
+  </div>
+
+  <div class="card">
+    <h2>The pyramid in this repo</h2>
+    <table>
+      <thead><tr><th>Layer</th><th>Tool</th><th>Scope</th><th>Lives in</th><th>Runs</th></tr></thead>
+      <tbody>
+        <tr><td>Unit</td><td>xUnit + FluentAssertions + NSubstitute</td><td>One handler, one validator, one policy at a time. No I/O.</td><td><code>&lt;Service&gt;.Tests/Unit/</code></td><td>Pre-commit, CI</td></tr>
+        <tr><td>Integration</td><td>xUnit + Testcontainers</td><td>Service + real database + real cache + real broker inside Docker. <code>WebApplicationFactory&lt;Program&gt;</code> hosts the API.</td><td><code>&lt;Service&gt;.Tests/Integration/</code> + <code>tests/integration/</code></td><td>CI</td></tr>
+        <tr><td>Contract</td><td>Pact</td><td>Provider verification — every consumer's expectations replay against the provider.</td><td><code>tests/contract/</code></td><td>CI</td></tr>
+        <tr><td>E2E</td><td>Playwright (TypeScript)</td><td>Full browser run against a deployed environment. Sign-up, sign-in, basket, checkout, real-time notification.</td><td><code>tests/e2e/</code></td><td>On PR (against ephemeral dev) + nightly (against staging)</td></tr>
+        <tr><td>Load</td><td>k6</td><td>p95 / p99 latency + error rate under target RPS.</td><td><code>tests/load/</code></td><td>Nightly + before release</td></tr>
+        <tr><td>Security</td><td>SonarCloud + Trivy + CodeQL + OWASP dep check</td><td>Code smell, vulnerable packages, image CVEs, semgrep-style queries.</td><td>CI</td><td>Every PR</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Why integration tests use Testcontainers</h2>
+    <p>EF Core in-memory was banned in this codebase. Identity, Ordering and Payment all depend on SQL Server semantics (collation, unique indexes, retry-on-failure, computed columns). In-memory hides those failures until production.</p>
+    <pre><code>public sealed class IdentityApiFactory : WebApplicationFactory&lt;Program&gt;, IAsyncLifetime
+{
+    private readonly MsSqlContainer _msSqlContainer = new MsSqlBuilder()
+        .WithImage("mcr.microsoft.com/mssql/server:2022-latest")
+        .WithPassword("FreshCart!IntegrationTest1")
+        .Build();
+
+    protected override void ConfigureWebHost(IWebHostBuilder webHostBuilder)
+    {
+        webHostBuilder.ConfigureAppConfiguration((_, configurationBuilder) =>
+        {
+            configurationBuilder.AddInMemoryCollection(new Dictionary&lt;string, string?&gt;
+            {
+                ["ConnectionStrings:identitydb"] = _msSqlContainer.GetConnectionString(),
+                // …
+            });
+        });
+    }
+
+    public async Task InitializeAsync() =&gt; await _msSqlContainer.StartAsync();
+    public new async Task DisposeAsync() =&gt; await _msSqlContainer.DisposeAsync();
+}</code></pre>
+  </div>
+
+  <div class="card">
+    <h2>Playwright e2e — happy path covered out of the box</h2>
+    <p>The Playwright scaffold ships with one comprehensive smoke spec that exercises the entire customer journey:</p>
+    <ol class="steps">
+      <li>Open the storefront, sign up with a fresh email.</li>
+      <li>Confirm the session cookie is present and HttpOnly.</li>
+      <li>Browse the catalog, search, view a product detail.</li>
+      <li>Add three items to the basket.</li>
+      <li>Check out — assert order confirmation page is shown.</li>
+      <li>Assert the SignalR-pushed notification toast appears.</li>
+      <li>Open the orders page, find the new order, assert its status.</li>
+    </ol>
+    <p>Tests run in three browsers (Chromium, Firefox, WebKit) and on mobile viewports. Visual regression baselines stored under <code>tests/e2e/snapshots/</code>.</p>
+  </div>
+
+  <div class="card">
+    <h2>Quality gates that must be green</h2>
+    <ul class="checklist">
+      <li><code>dotnet build</code> with <code>TreatWarningsAsErrors=true</code>.</li>
+      <li>All Roslyn analyzers (Microsoft.CodeAnalysis.NetAnalyzers, StyleCop, Sonar, Meziantou, AsyncFixer, Roslynator) clean.</li>
+      <li>Unit + integration test suites passing.</li>
+      <li>Coverage report published; PR cannot drop coverage on the changed lines.</li>
+      <li>SonarCloud quality gate "Passed" — A rating; zero new bugs / vulnerabilities / hotspots.</li>
+      <li><code>dotnet list package --vulnerable</code> empty.</li>
+      <li>Trivy image scan — zero HIGH/CRITICAL CVEs.</li>
+      <li>CodeQL security analysis clean.</li>
+      <li>Playwright e2e smoke green against the ephemeral preview env.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- TAB 9.5: REPORTING & INVOICES (full suite)                       -->
+<!-- ================================================================ -->
+<div id="tab-reporting" class="tab-content">
+  <div class="hero">
+    <h2>Reporting suite — invoices, KPI dashboards, scheduled reports, Excel exports</h2>
+    <p>The Reporting service is a first-class member of the platform: it consumes integration events from every other service, projects them into a materialised <strong>MySQL warehouse</strong>, and serves both <strong>JSON dashboards</strong> (for the SPA back-office) and <strong>downloadable artefacts</strong> — PDF invoices via QuestPDF, Excel exports via ClosedXML — straight from <strong>Azure Blob Storage</strong> via signed URLs.</p>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat"><div class="num">15</div><div class="lbl">KPI metrics</div></div>
+    <div class="stat"><div class="num">11</div><div class="lbl">endpoints</div></div>
+    <div class="stat"><div class="num">PDF</div><div class="lbl">invoices (QuestPDF)</div></div>
+    <div class="stat"><div class="num">XLSX</div><div class="lbl">exports (ClosedXML)</div></div>
+    <div class="stat"><div class="num">Daily</div><div class="lbl">scheduled job</div></div>
+    <div class="stat"><div class="num">Gap-free</div><div class="lbl">invoice numbering</div></div>
+  </div>
+
+  <div class="card">
+    <h2>What the suite delivers</h2>
+    <div class="card-grid">
+      <div class="mini-card"><h4>Executive sales overview <span class="badge badge-blue">JSON</span></h4><p>GMV, net revenue, order count, AOV, refund rate. Each tile carries the previous-period value so the dashboard renders deltas and trend arrows.</p></div>
+      <div class="mini-card"><h4>Time-series chart <span class="badge badge-blue">JSON</span></h4><p>Per-bucket (hourly / daily / weekly / monthly) sales totals for any period. Drives the trend chart in the back-office dashboard.</p></div>
+      <div class="mini-card"><h4>Revenue breakdown <span class="badge badge-blue">JSON</span></h4><p>Single round-trip returning the by-category + by-payment-method pie-chart data.</p></div>
+      <div class="mini-card"><h4>Top products <span class="badge badge-green">Ranking</span></h4><p>Best sellers or slow movers by net revenue, with units-sold as secondary metric.</p></div>
+      <div class="mini-card"><h4>Customer leaderboard <span class="badge badge-green">Ranking</span></h4><p>Top customers by lifetime value — drives the loyalty programme tier list.</p></div>
+      <div class="mini-card"><h4>Inventory health <span class="badge badge-teal">Operations</span></h4><p>Total SKUs, out-of-stock, low-stock, overstock counts, and on-hand value at cost.</p></div>
+      <div class="mini-card"><h4>Delivery performance <span class="badge badge-teal">Operations</span></h4><p>On-time / late / failed counts, average delivery duration, on-time percentage.</p></div>
+      <div class="mini-card"><h4>Customer-facing invoice PDF <span class="badge badge-orange">PDF</span></h4><p>A4 layout with header, billing + shipping addresses, itemised lines, totals, due date, footer. QuestPDF managed-only — runs in chiselled Linux container.</p></div>
+      <div class="mini-card"><h4>Credit notes &amp; pro-forma <span class="badge badge-orange">PDF</span></h4><p>Same renderer, different <code>InvoiceKind</code>. Credit notes reference the original invoice number.</p></div>
+      <div class="mini-card"><h4>Sales transactions Excel export <span class="badge badge-purple">XLSX</span></h4><p>Daily-bucketed transactions for any period as a styled .xlsx with frozen header + auto-width columns.</p></div>
+      <div class="mini-card"><h4>Daily scheduled report <span class="badge badge-grey">Background</span></h4><p><code>DailySalesReportBackgroundService</code> writes yesterday's hourly summary to <code>scheduled-reports/daily/&lt;yyyy-MM-dd&gt;.xlsx</code> in Blob Storage. Idempotent — skips if the file already exists.</p></div>
+      <div class="mini-card"><h4>Signed-URL downloads <span class="badge badge-blue">SAS</span></h4><p>Every download endpoint returns a short-lived (15-min) Azure Blob SAS URI. The SPA never proxies the bytes through the API.</p></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Architecture — Clean Architecture + CQRS materialised read model</h2>
+    <p>Four projects with dependencies pointing inward. The Application layer defines the warehouse ports; the Infrastructure layer implements them with <strong>Dapper for reads</strong> and <strong>EF Core for the writes</strong> that need a transactional unit of work (invoice numbering, projection inbox).</p>
+    <pre class="tree">FreshCart.Reporting.Api                <span class="comment"># Carter endpoints, JWT auth, Program.cs</span>
+        ↓
+FreshCart.Reporting.Infrastructure     <span class="comment"># Dapper · QuestPDF · ClosedXML · Azure Blob · MassTransit · BackgroundService</span>
+        ↓
+FreshCart.Reporting.Application        <span class="comment"># Queries, commands, projection consumers, abstractions (ports)</span>
+        ↓
+FreshCart.Reporting.Domain             <span class="comment"># Invoice + InvoiceNumber + SalesSnapshot + KpiMetric (pure)</span></pre>
+
+    <h3>Key technologies</h3>
+    <ul class="checklist">
+      <li><strong>Dapper</strong> on MySQL warehouse — hand-tuned set-based queries (e.g. <code>ROW_NUMBER() OVER (ORDER BY SUM(quantity) DESC)</code> for top-N rankings).</li>
+      <li><strong>EF Core</strong> for the invoice numbering row-lock and the projection-inbox idempotency table.</li>
+      <li><strong>QuestPDF</strong> for invoice PDFs — fluent layout, managed-only, no native binaries needed in the container.</li>
+      <li><strong>ClosedXML</strong> for Excel — frozen header, auto-width, document properties, no Office dependency.</li>
+      <li><strong>Azure Blob Storage</strong> for storage; <strong>Azure.Identity</strong> + Workload Identity for auth; user-delegation SAS for short-lived downloads.</li>
+      <li><strong>MassTransit</strong> consumers (<code>OrderConfirmedProjectionConsumer</code>, <code>OrderRefundedProjectionConsumer</code>) with inbox-based idempotency.</li>
+      <li><strong>BackgroundService</strong> for the daily scheduled report (runs hourly, skips if already done).</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Endpoint catalogue</h2>
+    <table>
+      <thead><tr><th>Endpoint</th><th>Method</th><th>Returns</th><th>Auth</th></tr></thead>
+      <tbody>
+        <tr><td><code>/dashboards/sales/overview</code></td><td>GET</td><td>SalesOverviewDto (tiles + period values)</td><td>BackOfficeUser</td></tr>
+        <tr><td><code>/dashboards/sales/time-series</code></td><td>GET</td><td>SalesTimeSeriesDto (hourly/daily/weekly/monthly)</td><td>BackOfficeUser</td></tr>
+        <tr><td><code>/dashboards/sales/breakdown</code></td><td>GET</td><td>RevenueBreakdownDto (by category + payment method)</td><td>BackOfficeUser</td></tr>
+        <tr><td><code>/dashboards/inventory/health</code></td><td>GET</td><td>InventoryHealthSummary</td><td>BackOfficeUser</td></tr>
+        <tr><td><code>/dashboards/delivery/performance</code></td><td>GET</td><td>DeliveryPerformanceSummary</td><td>BackOfficeUser</td></tr>
+        <tr><td><code>/reports/products/top</code></td><td>GET</td><td>TopProductsDto (best sellers or slow movers)</td><td>BackOfficeUser</td></tr>
+        <tr><td><code>/reports/customers/leaderboard</code></td><td>GET</td><td>CustomerLeaderboardDto</td><td>BackOfficeUser</td></tr>
+        <tr><td><code>/invoices</code></td><td>POST</td><td>GenerateInvoiceResult (idempotent per orderId)</td><td>BackOfficeUser</td></tr>
+        <tr><td><code>/invoices/{number}</code></td><td>GET</td><td>Signed Blob SAS URI for the PDF</td><td>Authenticated</td></tr>
+        <tr><td><code>/invoices/{number}/content.pdf</code></td><td>GET</td><td>Streamed PDF (bytes)</td><td>Authenticated</td></tr>
+        <tr><td><code>/exports/sales-transactions.xlsx</code></td><td>GET</td><td>Excel workbook (daily-bucketed)</td><td>BackOfficeUser</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Animated flow — invoice generation</h2>
+    <div class="af" id="flow-invoice">
+      <div class="af-title">Confirmed order → idempotent invoice PDF in Azure Blob Storage</div>
+      <div class="af-row">
+        <div class="af-n n-not" data-step="1">Back-office SPA<div class="sub">POST /api/reporting/invoices</div></div>
+        <div class="af-arr" data-arr="1">→</div>
+        <div class="af-n n-yarp" data-step="2">YARP<div class="sub">cookie → JWT</div></div>
+        <div class="af-arr" data-arr="2">→</div>
+        <div class="af-n n-rep" data-step="3">Reporting API<div class="sub">GenerateInvoiceCommand</div></div>
+        <div class="af-arr" data-arr="3">→</div>
+        <div class="af-n n-rep" data-step="4">FindByOrderIdAsync<div class="sub">idempotent check</div></div>
+      </div>
+      <div class="af-arr-down" data-arr="4">↓</div>
+      <div class="af-row">
+        <div class="af-n n-mysql" data-step="5">AllocateNextNumber<div class="sub">row lock · gap-free</div></div>
+        <div class="af-arr" data-arr="5">→</div>
+        <div class="af-n n-rep" data-step="6">QuestPDF render<div class="sub">A4 layout</div></div>
+        <div class="af-arr" data-arr="6">→</div>
+        <div class="af-n n-azure" data-step="7">Blob upload<div class="sub">INV-2026-000123.pdf</div></div>
+        <div class="af-arr" data-arr="7">→</div>
+        <div class="af-n n-mysql" data-step="8">Persist invoice row<div class="sub">EF Core SaveChanges</div></div>
+      </div>
+      <div class="af-arr-down" data-arr="8">↓</div>
+      <div class="af-row">
+        <div class="af-n n-azure" data-step="9">Mint SAS URL<div class="sub">15 min · read-only</div></div>
+        <div class="af-arr" data-arr="9">→</div>
+        <div class="af-n n-yarp" data-step="10">YARP → SPA<div class="sub">DownloadUri returned</div></div>
+        <div class="af-arr" data-arr="10">→</div>
+        <div class="af-n n-browser" data-step="11">Browser<div class="sub">opens PDF</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Animated flow — event projection into the warehouse</h2>
+    <div class="af" id="flow-projection">
+      <div class="af-title">Every confirmed order updates the materialised warehouse — idempotent at every hop</div>
+      <div class="af-row">
+        <div class="af-n n-ord" data-step="1">Ordering<div class="sub">publishes OrderConfirmed</div></div>
+        <div class="af-arr" data-arr="1">→</div>
+        <div class="af-n n-rabbit" data-step="2">RabbitMQ<div class="sub">topic exchange</div></div>
+        <div class="af-arr" data-arr="2">→</div>
+        <div class="af-n n-rep" data-step="3">Reporting consumer<div class="sub">IConsumer&lt;T&gt;</div></div>
+        <div class="af-arr" data-arr="3">→</div>
+        <div class="af-n n-mysql" data-step="4">ProjectionInbox<div class="sub">already processed?</div></div>
+      </div>
+      <div class="af-arr-down" data-arr="4">↓</div>
+      <div class="af-row">
+        <div class="af-n n-mysql" data-step="5">UPSERT sales_facts<div class="sub">order totals</div></div>
+        <div class="af-arr" data-arr="5">→</div>
+        <div class="af-n n-mysql" data-step="6">UPSERT sales_line_facts<div class="sub">per-product</div></div>
+        <div class="af-arr" data-arr="6">→</div>
+        <div class="af-n n-mysql" data-step="7">UPSERT customer_ltv<div class="sub">+net revenue</div></div>
+        <div class="af-arr" data-arr="7">→</div>
+        <div class="af-n n-mysql" data-step="8">Record inbox<div class="sub">commit transaction</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Animated flow — daily scheduled report</h2>
+    <div class="af" id="flow-scheduled">
+      <div class="af-title">Hourly background job ensures yesterday's report is in Blob Storage</div>
+      <div class="af-row">
+        <div class="af-n n-rep" data-step="1">BackgroundService<div class="sub">tick (1h)</div></div>
+        <div class="af-arr" data-arr="1">→</div>
+        <div class="af-n n-azure" data-step="2">Check Blob<div class="sub">daily/2026-05-24.xlsx?</div></div>
+        <div class="af-arr" data-arr="2">→</div>
+        <div class="af-n n-mysql" data-step="3">Hourly time-series<div class="sub">Dapper aggregate</div></div>
+        <div class="af-arr" data-arr="3">→</div>
+        <div class="af-n n-rep" data-step="4">ClosedXML render<div class="sub">styled .xlsx</div></div>
+        <div class="af-arr" data-arr="4">→</div>
+        <div class="af-n n-azure" data-step="5">Blob upload<div class="sub">scheduled-reports/...</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Invoice numbering — gap-free per (year, kind)</h2>
+    <p>Tax jurisdictions require <strong>gap-free, monotonically-increasing</strong> invoice numbers within a year per document kind. FreshCart implements this with an <code>invoice_number_sequences</code> table and an UPDATE under InnoDB row lock:</p>
+    <pre><code>// InvoiceRepository.AllocateNextNumberAsync
+var sequenceRow = await dbContext.InvoiceNumberSequences
+    .FirstOrDefaultAsync(s =&gt; s.Year == year &amp;&amp; s.Kind == kind, cancellationToken);
+
+sequenceRow ??= new InvoiceNumberSequence { Year = year, Kind = kind, LastSequence = 0 };
+sequenceRow.LastSequence += 1;
+await dbContext.SaveChangesAsync(cancellationToken);   // implicit row lock until commit
+
+return InvoiceNumber.Allocate(kind, year, sequenceRow.LastSequence);</code></pre>
+    <p>Format examples: <code>INV-2026-000123</code>, <code>CR-2026-000018</code>, <code>PF-2026-000009</code>. <code>InvoiceNumber.TryParse</code> in the domain layer round-trips them.</p>
+  </div>
+
+  <div class="card">
+    <h2>Code links</h2>
+    <pre><code>src/Services/Reporting/FreshCart.Reporting.Domain/Invoices/Invoice.cs
+src/Services/Reporting/FreshCart.Reporting.Domain/Invoices/InvoiceNumber.cs
+src/Services/Reporting/FreshCart.Reporting.Application/Sales/Queries/GetSalesOverviewQueryHandler.cs
+src/Services/Reporting/FreshCart.Reporting.Application/Invoices/Commands/GenerateInvoice/GenerateInvoiceCommandHandler.cs
+src/Services/Reporting/FreshCart.Reporting.Application/Projections/Consumers/OrderConfirmedProjectionConsumer.cs
+src/Services/Reporting/FreshCart.Reporting.Infrastructure/Persistence/Warehouse/DapperSalesReadWarehouse.cs
+src/Services/Reporting/FreshCart.Reporting.Infrastructure/Persistence/Warehouse/WarehouseProjectionWriter.cs
+src/Services/Reporting/FreshCart.Reporting.Infrastructure/Documents/Pdf/QuestPdfInvoiceRenderer.cs
+src/Services/Reporting/FreshCart.Reporting.Infrastructure/Documents/Excel/ClosedXmlExcelExporter.cs
+src/Services/Reporting/FreshCart.Reporting.Infrastructure/Scheduled/DailySalesReportBackgroundService.cs
+src/Services/Reporting/FreshCart.Reporting.Api/Endpoints/Dashboards/DashboardEndpoints.cs
+src/Services/Reporting/FreshCart.Reporting.Api/Endpoints/Invoices/InvoiceEndpoints.cs</code></pre>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- TAB 10: FRONTEND                                                 -->
+<!-- ================================================================ -->
+<div id="tab-frontend" class="tab-content">
+  <div class="hero">
+    <h2>Angular 20 frontend — signals-first, standalone, Bootstrap 5</h2>
+    <p>One app: <code>freshcart-customer</code> — the storefront, with the back-office dashboard and the support-agent console delivered as role-gated lazy routes inside it. Angular 20 with standalone components, zoneless change detection, the stable Signals API, the new control-flow syntax (<code>@if</code>, <code>@for</code>, <code>@defer</code>), and ng-bootstrap.</p>
+  </div>
+
+  <div class="card">
+    <h2>Stack</h2>
+    <ul class="checklist">
+      <li><strong>Angular 20</strong> — standalone-by-default, zoneless change detection, signals stable, <code>inject()</code> over constructor injection.</li>
+      <li><strong>State</strong> — <code>signal()</code>, <code>computed()</code>, <code>effect()</code> for local state; <strong>NgRx SignalStore</strong> (<code>@ngrx/signals</code>) for the cross-feature stores (auth, basket, notifications, support chat).</li>
+      <li><strong>RxJS</strong> for genuinely async streams (HTTP, SignalR); <code>toSignal()</code> to bind.</li>
+      <li><strong>Forms</strong> — typed nonNullable Reactive Forms (<code>FormBuilder.nonNullable.group&lt;T&gt;</code>).</li>
+      <li><strong>HTTP</strong> — <code>provideHttpClient(withFetch())</code> + functional interceptors; built-in XSRF via <code>withXsrfConfiguration</code>.</li>
+      <li><strong>SignalR</strong> — <code>@microsoft/signalr</code>, one connection per hub (notifications + support), cookie flows through the gateway (no <code>accessTokenFactory</code> — tokens never touch JS); auto-reconnect with backoff.</li>
+      <li><strong>UI</strong> — <strong>Bootstrap 5.3</strong> + <strong>ng-bootstrap</strong>; SCSS overrides for the fresh-green palette.</li>
+      <li><strong>Build</strong> — <code>@angular/build:application</code> (esbuild); initial bundle budget honest about Bootstrap.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>App layout — customer</h2>
+    <pre class="tree">clients/freshcart-customer/
+└── <span class="dir">src/app/</span>
+    ├── <span class="dir">core/</span>                          <span class="comment"># singletons + cross-feature stores</span>
+    │   ├── <span class="dir">auth/</span>                      <span class="comment"># AuthStore (cookie), auth/role/guest guards</span>
+    │   ├── <span class="dir">basket/</span>                    <span class="comment"># BasketStore (cross-feature)</span>
+    │   ├── <span class="dir">http/</span>                      <span class="comment"># credentials + api-error interceptors</span>
+    │   ├── <span class="dir">realtime/</span>                  <span class="comment"># SignalR factory + NotificationsStore</span>
+    │   ├── <span class="dir">notifications/</span>             <span class="comment"># toast service</span>
+    │   └── <span class="dir">config/</span>                    <span class="comment"># api-routes constants</span>
+    ├── <span class="dir">shared/</span>                        <span class="comment"># pipes, directives, dumb components</span>
+    ├── <span class="dir">features/</span>                      <span class="comment"># lazy-loaded</span>
+    │   ├── <span class="dir">home/</span>
+    │   ├── <span class="dir">catalog/</span>                   <span class="comment"># product list, detail, search</span>
+    │   ├── <span class="dir">basket/</span>
+    │   ├── <span class="dir">checkout/</span>
+    │   ├── <span class="dir">orders/</span>
+    │   ├── <span class="dir">account/</span>                   <span class="comment"># profile + TOTP MFA</span>
+    │   ├── <span class="dir">dashboard/</span>                 <span class="comment"># role-gated back-office KPIs</span>
+    │   └── <span class="dir">support/</span>                   <span class="comment"># chat widget + agent console</span>
+    ├── <span class="dir">layout/</span>
+    │   └── <span class="dir">shell/</span>                     <span class="comment"># header, footer, toast host, bell</span>
+    ├── <span class="file">app.config.ts</span>
+    └── <span class="file">app.routes.ts</span></pre>
+  </div>
+
+  <div class="card">
+    <h2>Signal-store pattern (NgRx SignalStore, one per cross-feature concern)</h2>
+    <pre><code>export const BasketStore = signalStore(
+  { providedIn: 'root' },
+  withState&lt;BasketState&gt;({ items: [], totals: emptyTotals, status: 'idle' }),
+  withComputed(({ items }) =&gt; ({
+    itemCount: computed(() =&gt; items().length),
+    isEmpty: computed(() =&gt; items().length === 0),
+  })),
+  withMethods((store, basketApi = inject(BasketApiService)) =&gt; ({
+    async addItem(productId: string, quantity: number): Promise&lt;void&gt; {
+      const basket = await firstValueFrom(basketApi.addItem(productId, quantity));
+      patchState(store, { items: basket.items, totals: basket.totals });
+    },
+  })),
+);</code></pre>
+  </div>
+
+  <div class="card">
+    <h2>Anti-forgery on the SPA side</h2>
+    <p>Angular's built-in XSRF support reads the <code>XSRF-TOKEN</code> cookie and echoes it as <code>X-XSRF-TOKEN</code> on unsafe requests; a small functional interceptor only adds <code>withCredentials</code> so the HttpOnly session cookie travels with same-origin <code>/api</code> and <code>/hubs</code> calls.</p>
+    <pre><code>// app.config.ts
+provideHttpClient(
+  withFetch(),
+  withXsrfConfiguration({ cookieName: 'XSRF-TOKEN', headerName: 'X-XSRF-TOKEN' }),
+  withInterceptors([credentialsInterceptor, apiErrorInterceptor]),
+);
+
+// core/http/credentials.interceptor.ts
+export const credentialsInterceptor: HttpInterceptorFn = (request, next) =&gt;
+  next(request.url.startsWith('/api') || request.url.startsWith('/hubs')
+    ? request.clone({ withCredentials: true })
+    : request);</code></pre>
+  </div>
+
+  <div class="card">
+    <h2>Quality gates (frontend)</h2>
+    <ul class="checklist">
+      <li>ESLint + <code>@angular-eslint</code> + <code>@typescript-eslint</code>.</li>
+      <li>Prettier + Stylelint (SCSS).</li>
+      <li>Strict <code>tsconfig.json</code> (<code>strict</code>, <code>noUncheckedIndexedAccess</code>, <code>exactOptionalPropertyTypes</code>).</li>
+      <li>Karma + Jasmine unit tests (Angular default runner) with <code>HttpTestingController</code>.</li>
+      <li>Playwright e2e tests in <code>tests/e2e/</code>.</li>
+      <li>Bundle budgets in <code>angular.json</code>.</li>
+      <li>SonarCloud frontend project — same A-rating gate as backend.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+// Tab switching
+document.querySelectorAll('.tab-btn').forEach(button => {
+  button.addEventListener('click', () => {
+    const target = button.getAttribute('data-tab');
+    document.querySelectorAll('.tab-btn').forEach(other => other.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    button.classList.add('active');
+    document.getElementById('tab-' + target).classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+});
+
+// Sub-tab switching
+document.querySelectorAll('.sub-tab-btn').forEach(button => {
+  button.addEventListener('click', () => {
+    const subGroup = button.getAttribute('data-sub');
+    const key = button.getAttribute('data-key');
+    document.querySelectorAll('.sub-tab-btn[data-sub="' + subGroup + '"]').forEach(other => other.classList.remove('active'));
+    document.querySelectorAll('.sub-content[data-sub="' + subGroup + '"]').forEach(content => content.classList.remove('active'));
+    button.classList.add('active');
+    document.querySelector('.sub-content[data-sub="' + subGroup + '"][data-key="' + key + '"]').classList.add('active');
+  });
+});
+
+// Animated flow runner
+function runFlow(containerId, totalSteps, stepDelayMs) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  let currentStep = 0;
+  const nodes = container.querySelectorAll('.af-n');
+  const arrows = container.querySelectorAll('.af-arr, .af-arr-down');
+
+  function reset() {
+    nodes.forEach(node => node.classList.remove('on'));
+    arrows.forEach(arrow => arrow.classList.remove('on'));
+    currentStep = 0;
+  }
+
+  function tick() {
+    if (currentStep > totalSteps) {
+      setTimeout(() => { reset(); tick(); }, 2000);
+      return;
+    }
+    if (currentStep >= 1) {
+      container.querySelectorAll('.af-n[data-step="' + currentStep + '"]').forEach(node => node.classList.add('on'));
+    }
+    if (currentStep >= 1) {
+      container.querySelectorAll('[data-arr="' + currentStep + '"]').forEach(arrow => arrow.classList.add('on'));
+    }
+    currentStep++;
+    setTimeout(tick, stepDelayMs);
+  }
+
+  tick();
+
+  container.addEventListener('click', () => { reset(); setTimeout(tick, 200); });
+}
+
+// Start each flow with a slight stagger so the page isn't fighting itself
+setTimeout(() => runFlow('flow-signin',  9,  700), 200);
+setTimeout(() => runFlow('flow-checkout', 14, 600), 500);
+setTimeout(() => runFlow('flow-outbox',  9,  700), 900);
+setTimeout(() => runFlow('flow-notify',  7,  800), 1300);
+setTimeout(() => runFlow('flow-cicd',    9,  700), 1700);
+setTimeout(() => runFlow('flow-invoice',    11, 650), 2100);
+setTimeout(() => runFlow('flow-projection',  8, 700), 2500);
+setTimeout(() => runFlow('flow-scheduled',   5, 750), 2900);
+</script>
+
+</body>
+</html>

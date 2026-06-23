@@ -1,0 +1,174 @@
+<section class="container py-4">
+  <h1 class="h3 mb-4">Your basket</h1>
+
+  @if (basketStore.status() === 'loading') {
+    <fc-loading-spinner label="Loading your basket" />
+  } @else if (basketStore.isEmpty()) {
+    <fc-empty-state icon="cart" heading="Your basket is empty" message="Browse the catalog to add items.">
+      <a routerLink="/catalog" class="btn btn-primary mt-3">Start shopping</a>
+    </fc-empty-state>
+  } @else {
+    <div class="row g-4">
+      <div class="col-12 col-lg-8">
+        @if (basketStore.error(); as error) {
+          <div class="alert alert-warning" role="alert">{{ error.detail }}</div>
+        }
+
+        <div class="table-responsive d-none d-md-block">
+          <table class="table align-middle">
+            <caption class="visually-hidden">Basket items</caption>
+            <thead>
+              <tr>
+                <th scope="col">Product</th>
+                <th scope="col" class="text-end">Price</th>
+                <th scope="col" class="text-center">Quantity</th>
+                <th scope="col" class="text-end">Total</th>
+                <th scope="col"><span class="visually-hidden">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (line of basketStore.items(); track line.productId) {
+                <tr>
+                  <th scope="row" class="fw-normal">
+                    <div class="d-flex align-items-center gap-2">
+                      <img
+                        class="fc-product-card-img rounded fc-basket-thumb"
+                        [src]="line.imageUrl ?? 'https://picsum.photos/seed/' + line.productSku + '/120/90'"
+                        [alt]="line.productName"
+                        loading="lazy">
+                      <span>{{ line.productName }}</span>
+                    </div>
+                  </th>
+                  <td class="text-end">{{ line.discountedUnitPrice | fcMoney: basketStore.currencyCode() }}</td>
+                  <td>
+                    <div class="input-group input-group-sm justify-content-center mx-auto fc-qty-stepper">
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        aria-label="Decrease quantity"
+                        [disabled]="isLinePending(line.productId) || line.quantity <= minimumLineQuantity"
+                        (click)="changeQuantity(line.productId, line.quantity - 1)">
+                        <i class="bi bi-dash" aria-hidden="true"></i>
+                      </button>
+                      <span class="input-group-text bg-body">{{ line.quantity }}</span>
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        aria-label="Increase quantity"
+                        [disabled]="isLinePending(line.productId) || line.quantity >= maximumLineQuantity"
+                        (click)="changeQuantity(line.productId, line.quantity + 1)">
+                        <i class="bi bi-plus" aria-hidden="true"></i>
+                      </button>
+                    </div>
+                  </td>
+                  <td class="text-end fw-semibold">{{ line.lineTotal | fcMoney: basketStore.currencyCode() }}</td>
+                  <td class="text-end">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-danger"
+                      aria-label="Remove item"
+                      [disabled]="isLinePending(line.productId)"
+                      (click)="removeLine(line.productId, line.productName)">
+                      <i class="bi bi-trash" aria-hidden="true"></i>
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <div class="d-md-none">
+          @for (line of basketStore.items(); track line.productId) {
+            <div class="card mb-2">
+              <div class="card-body">
+                <div class="d-flex justify-content-between">
+                  <h2 class="h6 mb-1">{{ line.productName }}</h2>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-danger"
+                    aria-label="Remove item"
+                    [disabled]="isLinePending(line.productId)"
+                    (click)="removeLine(line.productId, line.productName)">
+                    <i class="bi bi-trash" aria-hidden="true"></i>
+                  </button>
+                </div>
+                <p class="text-body-secondary small mb-2">
+                  {{ line.discountedUnitPrice | fcMoney: basketStore.currencyCode() }} each
+                </p>
+                <div class="d-flex justify-content-between align-items-center">
+                  <div class="input-group input-group-sm fc-qty-stepper">
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary"
+                      aria-label="Decrease quantity"
+                      [disabled]="isLinePending(line.productId) || line.quantity <= minimumLineQuantity"
+                      (click)="changeQuantity(line.productId, line.quantity - 1)">
+                      <i class="bi bi-dash" aria-hidden="true"></i>
+                    </button>
+                    <span class="input-group-text bg-body">{{ line.quantity }}</span>
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary"
+                      aria-label="Increase quantity"
+                      [disabled]="isLinePending(line.productId) || line.quantity >= maximumLineQuantity"
+                      (click)="changeQuantity(line.productId, line.quantity + 1)">
+                      <i class="bi bi-plus" aria-hidden="true"></i>
+                    </button>
+                  </div>
+                  <span class="fw-semibold">{{ line.lineTotal | fcMoney: basketStore.currencyCode() }}</span>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="col-12 col-lg-4">
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <h2 class="h5 card-title">Order summary</h2>
+
+            <form class="my-3" (ngSubmit)="applyCoupon()">
+              @if (basketStore.appliedCoupon(); as coupon) {
+                <div class="d-flex justify-content-between align-items-center">
+                  <span class="badge text-bg-success">
+                    <i class="bi bi-tag me-1" aria-hidden="true"></i>{{ coupon }}
+                  </span>
+                  <button type="button" class="btn btn-sm btn-link text-danger" (click)="removeCoupon()">
+                    Remove
+                  </button>
+                </div>
+              } @else {
+                <label class="form-label small text-body-secondary" for="coupon-code">Coupon code</label>
+                <div class="input-group">
+                  <input id="coupon-code" type="text" class="form-control" [formControl]="couponControl">
+                  <button type="submit" class="btn btn-outline-primary" [disabled]="isMutating()">Apply</button>
+                </div>
+              }
+            </form>
+
+            <dl class="row mb-0">
+              <dt class="col-7 fw-normal text-body-secondary">Subtotal</dt>
+              <dd class="col-5 text-end">{{ basketStore.totals().subtotal | fcMoney: basketStore.currencyCode() }}</dd>
+              <dt class="col-7 fw-normal text-body-secondary">Discount</dt>
+              <dd class="col-5 text-end text-success">
+                -{{ basketStore.totals().discountTotal | fcMoney: basketStore.currencyCode() }}
+              </dd>
+              <dt class="col-7 fw-normal text-body-secondary">Tax</dt>
+              <dd class="col-5 text-end">{{ basketStore.totals().taxTotal | fcMoney: basketStore.currencyCode() }}</dd>
+              <dt class="col-7 h6 mt-2">Total</dt>
+              <dd class="col-5 text-end h6 mt-2">
+                {{ basketStore.totals().grandTotal | fcMoney: basketStore.currencyCode() }}
+              </dd>
+            </dl>
+
+            <a routerLink="/checkout" class="btn btn-primary w-100 mt-3" [class.disabled]="basketStore.isEmpty()">
+              Proceed to checkout
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+</section>

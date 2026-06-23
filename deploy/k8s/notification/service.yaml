@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification
+  namespace: freshcart
+  labels: { app.kubernetes.io/name: notification }
+spec:
+  type: ClusterIP
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP: { timeoutSeconds: 10800 }
+  ports:
+    - { name: http, port: 80, targetPort: 8080, protocol: TCP, appProtocol: http }
+  selector: { app.kubernetes.io/name: notification }

@@ -1,0 +1,45 @@
+<div #scrollContainer class="flex-grow-1 overflow-auto px-3 py-2 d-flex flex-column gap-2">
+  @for (message of messages(); track message.messageId) {
+    <div class="d-flex flex-column" [class.align-items-end]="isOwnMessage(message)">
+      <div
+        class="rounded-3 px-3 py-2 fc-chat-bubble"
+        [class.text-bg-primary]="isOwnMessage(message)"
+        [class.bg-body-secondary]="!isOwnMessage(message)">
+        <span class="d-block small fw-semibold">{{ message.senderDisplayName }}</span>
+        <span class="d-block text-break">{{ message.text }}</span>
+      </div>
+      <span class="small text-body-tertiary mt-1">{{ message.sentOnUtc | fcRelativeTime }}</span>
+    </div>
+  } @empty {
+    <p class="text-body-secondary small text-center my-auto">No messages yet. Say hello to get started.</p>
+  }
+
+  @if (counterpartTyping()) {
+    <span class="small text-body-secondary fst-italic" aria-live="polite">
+      {{ counterpartName() }} is typing…
+    </span>
+  }
+</div>
+
+<form class="border-top p-2" (ngSubmit)="submit()">
+  <label class="visually-hidden" for="chat-thread-composer">Message</label>
+  <div class="d-flex gap-2 align-items-end">
+    <textarea
+      id="chat-thread-composer"
+      fcAutofocus
+      class="form-control"
+      rows="1"
+      placeholder="Type a message"
+      [value]="draft()"
+      [disabled]="composerDisabled()"
+      (input)="onDraftInput($event)"
+      (keydown.enter)="onEnter($event)"></textarea>
+    <button type="submit" class="btn btn-primary" [disabled]="!canSend() || sending()" aria-label="Send message">
+      @if (sending()) {
+        <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+      } @else {
+        <i class="bi bi-send" aria-hidden="true"></i>
+      }
+    </button>
+  </div>
+</form>

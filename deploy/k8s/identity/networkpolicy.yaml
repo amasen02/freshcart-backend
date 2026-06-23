@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: identity
+  namespace: freshcart
+spec:
+  podSelector:
+    matchLabels: { app.kubernetes.io/name: identity }
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { name: ingress-nginx } }
+        - namespaceSelector: { matchLabels: { name: freshcart } }
+          podSelector:       { matchLabels: { app.kubernetes.io/name: gateway } }
+      ports:
+        - { protocol: TCP, port: 8080 }
+  egress:
+    - to:
+        - ipBlock: { cidr: 10.0.0.0/8 }            # Azure SQL private endpoint + cluster
+        - ipBlock: { cidr: 168.63.129.16/32 }      # Azure DNS
+    - to:
+        - namespaceSelector: { matchLabels: { name: kube-system } }
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
