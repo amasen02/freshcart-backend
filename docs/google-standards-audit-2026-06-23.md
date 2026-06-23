@@ -158,9 +158,9 @@ config carries credentials.
   credential at all, so the integrated checkout would fail wherever auth is enforced.
 - **PAY-004 BOLA** closed — capture is now `ServiceCaller`-only (no longer trusts body `CustomerId`).
 - **INV-002** closed — the reserve/release gRPC surface is now `ServiceCaller`-only, not bare `[Authorize]`.
-- **ID-SEC-01** closed — `app.UseAntiforgery()` wired and anti-forgery enforced on sign-out.
-  (Follow-up: extend the same one-line guard to the account/MFA mutation endpoints; the middleware is now
-  in place so it is mechanical.)
+- **ID-SEC-01** closed — `app.UseAntiforgery()` wired; a reusable, safe-method-aware,
+  cookie-conditional validator enforces anti-forgery on sign-out **and** the MFA enroll/verify/disable
+  mutations (group endpoint filter). Bearer/service callers are correctly skipped.
 
 **P1 — distributed-systems correctness:** ✅ **dead-letter + max-retry on the shared OutboxPublisher
 (BB-001) DONE + verified** (no schema change; both stores delegate to `OutboxMessage.MarkFailed`).

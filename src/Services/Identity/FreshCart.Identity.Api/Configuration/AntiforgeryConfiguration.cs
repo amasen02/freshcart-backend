@@ -73,6 +73,16 @@ public static class AntiforgeryConfiguration
         ArgumentNullException.ThrowIfNull(httpContext);
         ArgumentNullException.ThrowIfNull(antiforgery);
 
+        // Only state-changing methods are CSRF-exposed; safe (read) methods never carry side effects.
+        var requestMethod = httpContext.Request.Method;
+        if (HttpMethods.IsGet(requestMethod)
+            || HttpMethods.IsHead(requestMethod)
+            || HttpMethods.IsOptions(requestMethod)
+            || HttpMethods.IsTrace(requestMethod))
+        {
+            return;
+        }
+
         if (!httpContext.Request.Cookies.ContainsKey(AntiforgeryCookieName))
         {
             return;

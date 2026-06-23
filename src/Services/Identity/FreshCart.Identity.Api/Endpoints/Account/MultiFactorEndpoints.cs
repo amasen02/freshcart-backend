@@ -1,13 +1,16 @@
 using System.Security.Claims;
 using Carter;
 using FreshCart.BuildingBlocks.Exceptions;
+using FreshCart.Identity.Api.Configuration;
 using FreshCart.Identity.Application.Account.Commands.DisableMultiFactor;
 using FreshCart.Identity.Application.Account.Commands.EnrollMultiFactor;
 using FreshCart.Identity.Application.Account.Commands.VerifyMultiFactorEnrollment;
 using MediatR;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FreshCart.Identity.Api.Endpoints.Account;
 
@@ -26,6 +29,16 @@ public sealed class MultiFactorEndpoints : ICarterModule
             .MapGroup("/account/mfa")
             .WithTags("Account")
             .RequireAuthorization();
+
+        // Every route here is an authenticated state change, so enforce the double-submit CSRF token for
+        // browser (cookie) callers; bearer / service callers carry no cookie and are skipped.
+        multiFactorGroup.AddEndpointFilter(static async (filterContext, next) =>
+        {
+            var antiforgery = filterContext.HttpContext.RequestServices.GetRequiredService<IAntiforgery>();
+            await AntiforgeryConfiguration.ValidateBrowserRequestAsync(filterContext.HttpContext, antiforgery)
+                .ConfigureAwait(false);
+            return await next(filterContext).ConfigureAwait(false);
+        });
 
         multiFactorGroup.MapPost("/enroll", EnrollAsync)
             .WithSummary("Start authenticator enrollment and return the shared key plus otpauth URI.")

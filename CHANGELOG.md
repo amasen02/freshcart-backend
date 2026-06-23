@@ -42,8 +42,9 @@ walkable end-to-end.
 - **CSRF enforcement (Identity).** Added the missing `app.UseAntiforgery()` to the pipeline and a reusable
   `AntiforgeryConfiguration.ValidateBrowserRequestAsync` that validates the `XSRF-TOKEN` / `X-XSRF-TOKEN`
   double-submit pair (issued but never validated) for cookie-bearing browser requests, while deliberately
-  skipping bearer / service callers that carry no ambient cookie and are not CSRF-exposed. Enforced on
-  sign-out (ID-SEC-01); the account / MFA mutation endpoints can adopt the same one-line guard.
+  skipping bearer / service callers that carry no ambient cookie and are not CSRF-exposed. The validator is
+  safe-method-aware (read endpoints are unaffected) and is enforced on sign-out and on the MFA
+  enroll/verify/disable mutations via a group endpoint filter (ID-SEC-01).
 - Verified: full solution builds with 0 errors; the entire test suite is green &mdash;
   Basket 92, Catalog 155, Payment 82, Ordering 70, Delivery 54, Reviews 53, CustomerSupport 46,
   Pricing 47, Notification 42, Identity 38, Gateway 38, BuildingBlocks 37, Reporting 36, Inventory 7.
