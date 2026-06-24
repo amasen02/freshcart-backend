@@ -61,10 +61,21 @@ webApplicationBuilder.Services.Configure<ForwardedHeadersOptions>(forwardedHeade
     forwardedHeadersOptions.KnownProxies.Clear();
 });
 
-webApplicationBuilder.Services
+var reverseProxyBuilder = webApplicationBuilder.Services
     .AddReverseProxy()
     .LoadFromConfig(webApplicationBuilder.Configuration.GetSection("ReverseProxy"))
     .AddTransforms<TokenExchangeTransformProvider>();
+
+// Locally the downstream services present the ASP.NET Core developer certificate, whose root is not in
+// the machine trust store on a fresh checkout (and `dotnet dev-certs --trust` requires an interactive
+// prompt). Accept it on the internal gateway->service hop in Development only; Staging/Production keep
+// full certificate-chain validation against real certificates.
+if (webApplicationBuilder.Environment.IsDevelopment())
+{
+    reverseProxyBuilder.ConfigureHttpClient((_, socketsHttpHandler) =>
+        socketsHttpHandler.SslOptions.RemoteCertificateValidationCallback =
+            DevelopmentCertificateValidation.AcceptAspNetCoreDevelopmentCertificate);
+}
 
 webApplicationBuilder.Services.AddGatewayHealthChecks(webApplicationBuilder.Configuration);
 

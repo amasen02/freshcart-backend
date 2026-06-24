@@ -20,13 +20,16 @@ public static class PaymentReadModelSchema
                 OrderId           uniqueidentifier NOT NULL CONSTRAINT UX_payments_OrderId UNIQUE,
                 CustomerId        uniqueidentifier NOT NULL,
                 Amount            decimal(18,2)    NOT NULL CONSTRAINT CK_payments_AmountPositive CHECK (Amount > 0),
-                RefundedAmount    decimal(18,2)    NOT NULL CONSTRAINT CK_payments_RefundedWithinAmount CHECK (RefundedAmount >= 0 AND RefundedAmount <= Amount),
+                RefundedAmount    decimal(18,2)    NOT NULL CONSTRAINT CK_payments_RefundedNonNegative CHECK (RefundedAmount >= 0),
                 CurrencyCode      nchar(3)         NOT NULL,
                 Method            nvarchar(50)     NOT NULL,
                 Status            nvarchar(20)     NOT NULL,
                 ProviderReference nvarchar(100)    NULL,
                 CreatedOnUtc      datetimeoffset   NOT NULL,
-                UpdatedOnUtc      datetimeoffset   NOT NULL
+                UpdatedOnUtc      datetimeoffset   NOT NULL,
+                -- A CHECK that spans two columns must be table-level; SQL Server rejects it (error 8141)
+                -- when declared inline on the RefundedAmount column.
+                CONSTRAINT CK_payments_RefundedWithinAmount CHECK (RefundedAmount <= Amount)
             );
         END;
         """;

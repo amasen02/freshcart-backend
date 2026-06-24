@@ -36,6 +36,14 @@ public sealed class CheckoutCommandHandler(
             throw new BadRequestException("Cannot check out an empty basket.");
         }
 
+        // Stateful checkout rule (kept here rather than in the validator, which must stay a stateless
+        // singleton): a basket with physical items cannot ship without a shipping address.
+        if (command.ShippingAddress is null && customerBasket.ContainsPhysicalItems)
+        {
+            throw new BadRequestException(
+                "A shipping address is required because the basket contains physical items.");
+        }
+
         var livePricing = await basketPricingClient
             .PriceBasketAsync(BasketPricingRequest.ForBasket(customerBasket), cancellationToken)
             .ConfigureAwait(false);

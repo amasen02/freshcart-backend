@@ -63,6 +63,19 @@ public sealed class CheckoutCommandHandlerTests
     }
 
     [Fact]
+    public async Task PhysicalBasketWithoutAShippingAddressCannotBeCheckedOut()
+    {
+        var command = CommandFor(Guid.NewGuid(), includeShippingAddress: false);
+        var (basket, _) = PhysicalBasketFor(command.CustomerId);
+        _basketRepository.GetAsync(command.CustomerId, Arg.Any<CancellationToken>()).Returns(basket);
+
+        var handlingCommand = () => _handler.Handle(command, CancellationToken.None);
+
+        await handlingCommand.Should().ThrowAsync<BadRequestException>();
+        await _pricingClient.DidNotReceiveWithAnyArgs().PriceBasketAsync(default!, default);
+    }
+
+    [Fact]
     public async Task ArchiveOutboxMessageAndLiveBasketDeletionRideOneUnitOfWorkCommit()
     {
         var command = CommandFor(Guid.NewGuid());

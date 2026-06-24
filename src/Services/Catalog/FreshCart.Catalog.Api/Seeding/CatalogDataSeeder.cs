@@ -33,9 +33,11 @@ public sealed class CatalogDataSeeder(
             return;
         }
 
-        documentSession.Store(CatalogSeedData.Categories);
-        documentSession.Store(CatalogSeedData.Brands);
-        documentSession.Store(CatalogSeedData.Products);
+        // Pass arrays, not the IReadOnlyList: Marten 8's Store<T>(params T[]) otherwise binds T to the
+        // list type itself and rejects it ("Do not use IEnumerable<T> here as the document type").
+        documentSession.Store(CatalogSeedData.Categories.ToArray());
+        documentSession.Store(CatalogSeedData.Brands.ToArray());
+        documentSession.Store(CatalogSeedData.Products.ToArray());
         await documentSession.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
         logger.LogInformation(

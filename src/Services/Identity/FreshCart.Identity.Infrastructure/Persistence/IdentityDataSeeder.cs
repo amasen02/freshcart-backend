@@ -47,7 +47,11 @@ public sealed class IdentityDataSeeder(
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
 
-        await dbContext.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
+        // EnsureCreated, not Migrate, is the developer-loop schema path used across the platform
+        // (cf. OrderingDatabaseInitializer): the Identity service ships no EF migrations, so MigrateAsync
+        // would create an empty database with no tables and the role seeding below would then fail with
+        // "Invalid object name". Production schema management via generated migrations is a separate item.
+        await dbContext.Database.EnsureCreatedAsync(cancellationToken).ConfigureAwait(false);
         await EnsureCanonicalRolesExistAsync(roleManager).ConfigureAwait(false);
 
         foreach (var account in DemoAccounts)

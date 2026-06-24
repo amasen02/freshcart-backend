@@ -35,9 +35,9 @@ public sealed class CatalogDataSeederTests
 
         await CreateSeeder().StartAsync(CancellationToken.None);
 
-        documentSession.Received(1).Store(CatalogSeedData.Categories);
-        documentSession.Received(1).Store(CatalogSeedData.Brands);
-        documentSession.Received(1).Store(CatalogSeedData.Products);
+        documentSession.Received(1).Store(Arg.Is<Category[]>(stored => stored.Length == CatalogSeedData.Categories.Count));
+        documentSession.Received(1).Store(Arg.Is<Brand[]>(stored => stored.Length == CatalogSeedData.Brands.Count));
+        documentSession.Received(1).Store(Arg.Is<Product[]>(stored => stored.Length == CatalogSeedData.Products.Count));
         await documentSession.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -59,7 +59,7 @@ public sealed class CatalogDataSeederTests
 
         await CreateSeeder().StartAsync(CancellationToken.None);
 
-        documentSession.DidNotReceive().Store(Arg.Any<IEnumerable<Category>>());
+        documentSession.DidNotReceive().Store(Arg.Any<Category[]>());
         await documentSession.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
