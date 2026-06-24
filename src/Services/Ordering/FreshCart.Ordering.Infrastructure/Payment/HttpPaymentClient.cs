@@ -16,6 +16,10 @@ public sealed class HttpPaymentClient(HttpClient httpClient) : IPaymentClient
 
     private const string CapturePath = "/payments";
 
+    // The Payment service reports the outcome as its PaymentStatus string; these are the success values.
+    private const string CapturedStatus = "Captured";
+    private static readonly string[] RefundedStatuses = ["Refunded", "PartiallyRefunded"];
+
     public async Task<PaymentCaptureResult> CapturePaymentAsync(
         PaymentCaptureRequest captureRequest,
         CancellationToken cancellationToken)
@@ -47,7 +51,8 @@ public sealed class HttpPaymentClient(HttpClient httpClient) : IPaymentClient
             ?? throw new InternalServerException(
                 $"Payment service returned an empty body when capturing order {captureRequest.OrderId}.");
 
-        return new PaymentCaptureResult(response.Succeeded, response.PaymentId, response.FailureReason);
+        var captureSucceeded = string.Equals(response.Status, CapturedStatus, StringComparison.OrdinalIgnoreCase);
+        return new PaymentCaptureResult(captureSucceeded, response.PaymentId, response.FailureReason);
     }
 
     public async Task<PaymentRefundResult> RefundPaymentAsync(
@@ -72,6 +77,7 @@ public sealed class HttpPaymentClient(HttpClient httpClient) : IPaymentClient
             ?? throw new InternalServerException(
                 $"Payment service returned an empty body when refunding payment {refundRequest.PaymentId}.");
 
-        return new PaymentRefundResult(response.Succeeded, response.RefundedAmount, response.FailureReason);
+        var refundSucceeded = RefundedStatuses.Contains(response.Status, StringComparer.OrdinalIgnoreCase);
+        return new PaymentRefundResult(refundSucceeded, response.RefundedAmount, FailureReason: null);
     }
 }

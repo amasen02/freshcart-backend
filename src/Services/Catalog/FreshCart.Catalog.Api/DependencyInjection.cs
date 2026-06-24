@@ -46,6 +46,10 @@ public static class DependencyInjection
         AddCatalogCaching(services, configuration);
         AddCatalogMessaging(services, configuration);
 
+        // Registered after messaging so this hosted service starts after the MassTransit bus: the seeder
+        // publishes ProductCreated events (which seed Inventory stock) and must do so on a started bus.
+        services.AddHostedService<CatalogDataSeeder>();
+
         return services;
     }
 
@@ -87,7 +91,6 @@ public static class DependencyInjection
         }).UseLightweightSessions();
 
         services.AddScoped<ICatalogQueries, MartenCatalogQueries>();
-        services.AddHostedService<CatalogDataSeeder>();
 
         services.AddHealthChecks()
             .AddNpgSql(catalogConnectionString, name: CatalogDatabaseConnectionName, tags: [ReadinessHealthCheckTag]);

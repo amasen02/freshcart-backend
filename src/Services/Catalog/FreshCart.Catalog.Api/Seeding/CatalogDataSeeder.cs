@@ -1,4 +1,6 @@
+using FreshCart.BuildingBlocks.Messaging.IntegrationEvents;
 using FreshCart.Catalog.Api.Data;
+using MassTransit;
 using Marten;
 
 namespace FreshCart.Catalog.Api.Seeding;
@@ -6,7 +8,8 @@ namespace FreshCart.Catalog.Api.Seeding;
 /// <summary>
 /// Stores the deterministic development catalog on first start when the host environment is
 /// Development. Guarded so it never writes to Staging or Production, and skipped once any category
-/// exists so restarts never duplicate documents.
+/// exists so restarts never duplicate documents. After storing it publishes a ProductCreated event per
+/// product (mirroring the create-product use case) so Inventory seeds a stock row for each SKU.
 /// </summary>
 public sealed class CatalogDataSeeder(
     IServiceScopeFactory serviceScopeFactory,
@@ -33,12 +36,13 @@ public sealed class CatalogDataSeeder(
             return;
         }
 
-        // Pass arrays, not the IReadOnlyList: Marten 8's Store<T>(params T[]) otherwise binds T to the
-        // list type itself and rejects it ("Do not use IEnumerable<T> here as the document type").
         documentSession.Store(CatalogSeedData.Categories.ToArray());
         documentSession.Store(CatalogSeedData.Brands.ToArray());
         documentSession.Store(CatalogSeedData.Products.ToArray());
         await documentSession.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        var publishEndpoint = serviceScope.ServiceProvider.GetRequiredService<IPublishEndpoint>();
+        await PublishProductCreatedEventsAsync(publishEndpoint, cancellationToken).ConfigureAwait(false);
 
         logger.LogInformation(
             "CatalogDataSeeder stored {CategoryCount} categories, {BrandCount} brands and {ProductCount} products.",
@@ -48,4 +52,30 @@ public sealed class CatalogDataSeeder(
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    private static async Task PublishProductCreatedEventsAsync(
+        IPublishEndpoint publishEndpoint,
+        CancellationToken cancellationToken)
+    {
+        var categoryNamesById = CatalogSeedData.Categories.ToDictionary(
+            category => category.Id,
+            category => category.Name);
+
+        foreach (var product in CatalogSeedData.Products)
+        {
+            await publishEndpoint.Publish(
+                new ProductCreatedIntegrationEvent
+                {
+                    ProductId = product.Id,
+                    ProductSku = product.Sku,
+                    ProductName = product.Name,
+                    PrimaryCategory = categoryNamesById.GetValueOrDefault(product.CategoryId, string.Empty),
+                    BasePrice = product.BasePrice,
+                    CurrencyCode = product.CurrencyCode,
+                    InitialStockQuantity = product.InitialStockQuantity,
+                    IsDigital = product.IsDigital,
+                },
+                cancellationToken).ConfigureAwait(false);
+        }
+    }
 }
