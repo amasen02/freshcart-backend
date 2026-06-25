@@ -5,15 +5,16 @@ using Microsoft.Extensions.Logging;
 namespace FreshCart.Delivery.Application.Scheduling;
 
 /// <summary>
-/// Schedules a delivery when an order is confirmed. Idempotency (one delivery per order) lives in
-/// <see cref="ScheduleDeliveryService"/>, so a redelivered message resolves to an
-/// <see cref="ScheduleDeliveryResult.AlreadyScheduled"/> outcome and publishes nothing a second time.
-/// A <see cref="Shipments.PendingShipmentNotYetAvailableException"/> is intentionally left to escape so
-/// the MassTransit retry policy redelivers when the checkout event lost the race to the confirmation.
+/// Schedules a delivery when an order is confirmed. The DeliveryScheduled event is not published here;
+/// <see cref="ScheduleDeliveryService"/> stages it in the transactional outbox in the same transaction
+/// that writes the delivery, and the background publisher delivers it, so a broker failure cannot drop
+/// it. Idempotency (one delivery per order) lives in the service, so a redelivered message resolves to an
+/// <see cref="ScheduleDeliveryResult.AlreadyScheduled"/> outcome and stages nothing a second time. A
+/// <see cref="Shipments.PendingShipmentNotYetAvailableException"/> (and a slot-lost race) is intentionally
+/// left to escape so the MassTransit retry policy redelivers.
 /// </summary>
 public sealed partial class OrderConfirmedConsumer(
     ScheduleDeliveryService scheduleDeliveryService,
-    IPublishEndpoint publishEndpoint,
     ILogger<OrderConfirmedConsumer> logger)
     : IConsumer<OrderConfirmedIntegrationEvent>
 {
@@ -26,32 +27,9 @@ public sealed partial class OrderConfirmedConsumer(
             .ScheduleForConfirmedOrderAsync(orderId, context.CancellationToken)
             .ConfigureAwait(false);
 
-        if (outcome.Result != ScheduleDeliveryResult.Scheduled)
-        {
-            LogNoEventPublished(orderId, outcome.Result);
-            return;
-        }
-
-        var delivery = outcome.Delivery!;
-        await publishEndpoint
-            .Publish(
-                new DeliveryScheduledIntegrationEvent
-                {
-                    OrderId = delivery.OrderId,
-                    DeliveryId = delivery.Id,
-                    CustomerId = delivery.CustomerId,
-                    SlotStartUtc = delivery.SlotStartUtc,
-                    SlotEndUtc = delivery.SlotEndUtc,
-                },
-                context.CancellationToken)
-            .ConfigureAwait(false);
-
-        LogDeliveryScheduledEventPublished(orderId, delivery.Id);
+        LogSchedulingOutcome(orderId, outcome.Result);
     }
 
-    [LoggerMessage(EventId = 1, Level = LogLevel.Debug, Message = "Order {OrderId} produced scheduling outcome {Outcome}; no DeliveryScheduled event published")]
-    private partial void LogNoEventPublished(Guid orderId, ScheduleDeliveryResult outcome);
-
-    [LoggerMessage(EventId = 2, Level = LogLevel.Information, Message = "Published DeliveryScheduled for order {OrderId} delivery {DeliveryId}")]
-    private partial void LogDeliveryScheduledEventPublished(Guid orderId, Guid deliveryId);
+    [LoggerMessage(EventId = 1, Level = LogLevel.Information, Message = "Order {OrderId} produced scheduling outcome {Outcome}")]
+    private partial void LogSchedulingOutcome(Guid orderId, ScheduleDeliveryResult outcome);
 }

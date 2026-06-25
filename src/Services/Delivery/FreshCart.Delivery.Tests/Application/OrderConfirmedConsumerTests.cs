@@ -1,4 +1,5 @@
 using FluentAssertions;
+using FreshCart.BuildingBlocks.Messaging.Events;
 using FreshCart.BuildingBlocks.Messaging.IntegrationEvents;
 using FreshCart.Delivery.Application.Abstractions;
 using FreshCart.Delivery.Application.Scheduling;
@@ -27,11 +28,11 @@ public sealed class OrderConfirmedConsumerTests
 
     private readonly IPendingShipmentRepository pendingShipments = Substitute.For<IPendingShipmentRepository>();
     private readonly IDeliveryRepository deliveries = Substitute.For<IDeliveryRepository>();
+    private readonly IDeliveryUnitOfWork unitOfWork = Substitute.For<IDeliveryUnitOfWork>();
     private readonly ISlotRepository slots = Substitute.For<ISlotRepository>();
     private readonly IZoneRepository zones = Substitute.For<IZoneRepository>();
     private readonly IDriverRepository drivers = Substitute.For<IDriverRepository>();
     private readonly IGeocodingService geocoding = Substitute.For<IGeocodingService>();
-    private readonly IPublishEndpoint publishEndpoint = Substitute.For<IPublishEndpoint>();
     private readonly FixedTimeProvider timeProvider = new(Now);
     private readonly OrderConfirmedConsumer consumer;
 
@@ -40,6 +41,7 @@ public sealed class OrderConfirmedConsumerTests
         var schedulingService = new ScheduleDeliveryService(
             pendingShipments,
             deliveries,
+            unitOfWork,
             slots,
             zones,
             drivers,
@@ -49,35 +51,33 @@ public sealed class OrderConfirmedConsumerTests
 
         consumer = new OrderConfirmedConsumer(
             schedulingService,
-            publishEndpoint,
             NullLogger<OrderConfirmedConsumer>.Instance);
     }
 
     [Fact]
-    public async Task SchedulesADeliveryAndPublishesTheScheduledEventForADeliverableOrder()
+    public async Task SchedulesADeliveryAndStagesTheScheduledEventForADeliverableOrder()
     {
         var openSlot = DeliverySlot.Create(ZoneId, SlotStart, SlotStart.AddHours(3), capacity: 5);
         ArrangeDeliverableOrder(openSlot);
 
         await consumer.Consume(CreateContext());
 
-        await deliveries.Received(1).AddAsync(
-            Arg.Is<DeliveryAggregate>(delivery => delivery.OrderId == OrderId && delivery.DriverId == DriverId),
-            Arg.Any<CancellationToken>());
         await slots.Received(1).TryBookSlotAsync(
             Arg.Is<DeliverySlot>(slot => slot.Id == openSlot.Id),
             Arg.Any<CancellationToken>());
         await pendingShipments.Received(1).DeleteByOrderIdAsync(OrderId, Arg.Any<CancellationToken>());
-        await publishEndpoint.Received(1).Publish(
-            Arg.Is<DeliveryScheduledIntegrationEvent>(scheduled =>
-                scheduled.OrderId == OrderId
-                && scheduled.CustomerId == CustomerId
-                && scheduled.SlotStartUtc == SlotStart),
+        await unitOfWork.Received(1).PersistScheduledDeliveryAsync(
+            Arg.Is<DeliveryAggregate>(delivery => delivery.OrderId == OrderId && delivery.DriverId == DriverId),
+            Arg.Is<IntegrationEvent>(integrationEvent =>
+                integrationEvent is DeliveryScheduledIntegrationEvent
+                && ((DeliveryScheduledIntegrationEvent)integrationEvent).OrderId == OrderId
+                && ((DeliveryScheduledIntegrationEvent)integrationEvent).CustomerId == CustomerId
+                && ((DeliveryScheduledIntegrationEvent)integrationEvent).SlotStartUtc == SlotStart),
             Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task SkipsADigitalOnlyOrderWithoutSchedulingOrPublishing()
+    public async Task SkipsADigitalOnlyOrderWithoutSchedulingOrStaging()
     {
         deliveries.FindByOrderIdAsync(OrderId, Arg.Any<CancellationToken>()).Returns((DeliveryAggregate?)null);
         pendingShipments.FindByOrderIdAsync(OrderId, Arg.Any<CancellationToken>())
@@ -85,8 +85,7 @@ public sealed class OrderConfirmedConsumerTests
 
         await consumer.Consume(CreateContext());
 
-        await deliveries.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
-        await publishEndpoint.DidNotReceiveWithAnyArgs().Publish(default(DeliveryScheduledIntegrationEvent)!, default);
+        await unitOfWork.DidNotReceiveWithAnyArgs().PersistScheduledDeliveryAsync(default!, default!, default);
         await pendingShipments.Received(1).DeleteByOrderIdAsync(OrderId, Arg.Any<CancellationToken>());
     }
 
@@ -99,7 +98,7 @@ public sealed class OrderConfirmedConsumerTests
         var consume = async () => await consumer.Consume(CreateContext());
 
         await consume.Should().ThrowAsync<PendingShipmentNotYetAvailableException>();
-        await publishEndpoint.DidNotReceiveWithAnyArgs().Publish(default(DeliveryScheduledIntegrationEvent)!, default);
+        await unitOfWork.DidNotReceiveWithAnyArgs().PersistScheduledDeliveryAsync(default!, default!, default);
     }
 
     [Fact]
@@ -113,9 +112,8 @@ public sealed class OrderConfirmedConsumerTests
         var consume = async () => await consumer.Consume(CreateContext());
 
         await consume.Should().ThrowAsync<SlotNoLongerAvailableException>();
-        await deliveries.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
+        await unitOfWork.DidNotReceiveWithAnyArgs().PersistScheduledDeliveryAsync(default!, default!, default);
         await pendingShipments.DidNotReceiveWithAnyArgs().DeleteByOrderIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
-        await publishEndpoint.DidNotReceiveWithAnyArgs().Publish(default(DeliveryScheduledIntegrationEvent)!, default);
     }
 
     [Fact]
@@ -133,8 +131,7 @@ public sealed class OrderConfirmedConsumerTests
 
         await consumer.Consume(CreateContext());
 
-        await deliveries.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
-        await publishEndpoint.DidNotReceiveWithAnyArgs().Publish(default(DeliveryScheduledIntegrationEvent)!, default);
+        await unitOfWork.DidNotReceiveWithAnyArgs().PersistScheduledDeliveryAsync(default!, default!, default);
         await pendingShipments.DidNotReceiveWithAnyArgs()
             .FindByOrderIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
     }

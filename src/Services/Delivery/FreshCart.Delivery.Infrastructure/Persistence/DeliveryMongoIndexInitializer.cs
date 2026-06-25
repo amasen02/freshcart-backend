@@ -1,3 +1,4 @@
+using FreshCart.BuildingBlocks.Messaging.Outbox;
 using FreshCart.Delivery.Infrastructure.Persistence.Documents;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -8,8 +9,9 @@ namespace FreshCart.Delivery.Infrastructure.Persistence;
 /// <summary>
 /// Creates the indexes the delivery store relies on, once, at startup. The 2dsphere index on the zone
 /// boundary is what makes the <c>$geoIntersects</c> zone match a server-side indexed query; the order
-/// id indexes back the one-delivery-per-order idempotency lookup. <c>CreateOne</c> is idempotent, so
-/// running this on every boot is safe.
+/// id indexes back the one-delivery-per-order idempotency lookup; the outbox index backs the publisher's
+/// unpublished-message poll so it does not degrade to a collection scan as processed rows accumulate.
+/// <c>CreateOne</c> is idempotent, so running this on every boot is safe.
 /// </summary>
 public sealed partial class DeliveryMongoIndexInitializer(
     DeliveryMongoContext context,
@@ -44,6 +46,16 @@ public sealed partial class DeliveryMongoIndexInitializer(
 
         await context.Slots.Indexes
             .CreateOneAsync(slotZoneIndex, options: null, cancellationToken)
+            .ConfigureAwait(false);
+
+        var outboxPollIndex = new CreateIndexModel<OutboxMessage>(
+            Builders<OutboxMessage>.IndexKeys
+                .Ascending(message => message.ProcessedOnUtc)
+                .Ascending(message => message.OccurredOnUtc),
+            new CreateIndexOptions { Name = "outbox-unpublished-poll" });
+
+        await context.Outbox.Indexes
+            .CreateOneAsync(outboxPollIndex, options: null, cancellationToken)
             .ConfigureAwait(false);
 
         LogIndexesEnsured();

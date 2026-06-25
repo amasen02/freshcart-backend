@@ -2,12 +2,15 @@ using System.Globalization;
 using System.Text;
 using Carter;
 using FreshCart.BuildingBlocks.Exceptions.Handler;
+using FreshCart.BuildingBlocks.Messaging.Outbox;
 using FreshCart.BuildingBlocks.Security;
 using FreshCart.Delivery.Api.Configuration;
 using FreshCart.Delivery.Application;
 using FreshCart.Delivery.Infrastructure;
 using FreshCart.ServiceDefaults;
+using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
 
@@ -30,6 +33,17 @@ webApplicationBuilder.AddFreshCartServiceDefaults();
 webApplicationBuilder.Services
     .AddDeliveryApplication()
     .AddDeliveryInfrastructure(webApplicationBuilder.Configuration, webApplicationBuilder.Environment);
+
+// The transactional outbox closes the dual-write gap on DeliveryScheduled/DeliveryCompleted: the events
+// are staged with the delivery write and this background publisher drains them onto the bus. MassTransit
+// registers IPublishEndpoint as scoped, so the singleton publisher is handed the bus itself (IBus).
+webApplicationBuilder.Services.Configure<OutboxPublisherOptions>(
+    webApplicationBuilder.Configuration.GetSection(OutboxPublisherOptions.SectionName));
+webApplicationBuilder.Services.AddSingleton<IHostedService>(serviceProvider => new OutboxPublisher(
+    serviceProvider.GetRequiredService<IServiceScopeFactory>(),
+    serviceProvider.GetRequiredService<IBus>(),
+    serviceProvider.GetRequiredService<IOptions<OutboxPublisherOptions>>(),
+    serviceProvider.GetRequiredService<ILogger<OutboxPublisher>>()));
 
 webApplicationBuilder.Services.AddCarter();
 webApplicationBuilder.Services.AddEndpointsApiExplorer();

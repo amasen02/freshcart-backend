@@ -1,5 +1,6 @@
 using System.Globalization;
 using FreshCart.BuildingBlocks.Exceptions;
+using FreshCart.BuildingBlocks.Messaging.IntegrationEvents;
 using FreshCart.Delivery.Application.Abstractions;
 using FreshCart.Delivery.Application.Shipments;
 using FreshCart.Delivery.Domain.Deliveries;
@@ -19,6 +20,7 @@ namespace FreshCart.Delivery.Application.Scheduling;
 public sealed partial class ScheduleDeliveryService(
     IPendingShipmentRepository pendingShipmentRepository,
     IDeliveryRepository deliveryRepository,
+    IDeliveryUnitOfWork deliveryUnitOfWork,
     ISlotRepository slotRepository,
     IZoneRepository zoneRepository,
     IDriverRepository driverRepository,
@@ -109,7 +111,18 @@ public sealed partial class ScheduleDeliveryService(
             proposal.DriverId,
             timeProvider.GetUtcNow());
 
-        await deliveryRepository.AddAsync(delivery, cancellationToken).ConfigureAwait(false);
+        var scheduledEvent = new DeliveryScheduledIntegrationEvent
+        {
+            OrderId = delivery.OrderId,
+            DeliveryId = delivery.Id,
+            CustomerId = delivery.CustomerId,
+            SlotStartUtc = delivery.SlotStartUtc,
+            SlotEndUtc = delivery.SlotEndUtc,
+        };
+
+        // The delivery and its DeliveryScheduled event commit together; the background outbox publisher
+        // delivers the event, so a broker outage can no longer drop it.
+        await deliveryUnitOfWork.PersistScheduledDeliveryAsync(delivery, scheduledEvent, cancellationToken).ConfigureAwait(false);
         return delivery;
     }
 

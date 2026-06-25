@@ -1,11 +1,11 @@
 using FluentAssertions;
 using FreshCart.BuildingBlocks.Exceptions;
+using FreshCart.BuildingBlocks.Messaging.Events;
 using FreshCart.BuildingBlocks.Messaging.IntegrationEvents;
 using FreshCart.Delivery.Application.Abstractions;
 using FreshCart.Delivery.Application.Fulfilment;
 using FreshCart.Delivery.Domain.Deliveries;
 using FreshCart.Delivery.Tests.Support;
-using MassTransit;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using DeliveryAggregate = FreshCart.Delivery.Domain.Deliveries.Delivery;
@@ -21,13 +21,13 @@ public sealed class CompleteDeliveryServiceTests
     private static readonly DateTimeOffset SlotStart = new(2026, 6, 19, 9, 0, 0, TimeSpan.Zero);
 
     private readonly IDeliveryRepository deliveries = Substitute.For<IDeliveryRepository>();
-    private readonly IPublishEndpoint publishEndpoint = Substitute.For<IPublishEndpoint>();
+    private readonly IDeliveryUnitOfWork unitOfWork = Substitute.For<IDeliveryUnitOfWork>();
     private readonly CompleteDeliveryService service;
 
     public CompleteDeliveryServiceTests() =>
         service = new CompleteDeliveryService(
             deliveries,
-            publishEndpoint,
+            unitOfWork,
             new FixedTimeProvider(Now),
             NullLogger<CompleteDeliveryService>.Instance);
 
@@ -41,11 +41,11 @@ public sealed class CompleteDeliveryServiceTests
 
         delivery.Status.Should().Be(DeliveryStatus.OutForDelivery);
         await deliveries.Received(1).UpdateAsync(delivery, Arg.Any<CancellationToken>());
-        await publishEndpoint.DidNotReceiveWithAnyArgs().Publish(default(DeliveryCompletedIntegrationEvent)!, default);
+        await unitOfWork.DidNotReceiveWithAnyArgs().PersistCompletedDeliveryAsync(default!, default!, default);
     }
 
     [Fact]
-    public async Task CompletingADeliveryStampsTheClockTimeAndPublishesTheCompletedEvent()
+    public async Task CompletingADeliveryStampsTheClockTimeAndStagesTheCompletedEvent()
     {
         var delivery = ScheduledDelivery();
         delivery.StartOutForDelivery();
@@ -55,29 +55,30 @@ public sealed class CompleteDeliveryServiceTests
 
         delivery.Status.Should().Be(DeliveryStatus.Completed);
         delivery.CompletedOnUtc.Should().Be(Now);
-        await deliveries.Received(1).UpdateAsync(delivery, Arg.Any<CancellationToken>());
-        await publishEndpoint.Received(1).Publish(
-            Arg.Is<DeliveryCompletedIntegrationEvent>(completed =>
-                completed.DeliveryId == DeliveryId
-                && completed.OrderId == OrderId
-                && completed.CustomerId == CustomerId
-                && completed.DeliveredOnUtc == Now),
+        await unitOfWork.Received(1).PersistCompletedDeliveryAsync(
+            Arg.Is<DeliveryAggregate>(completed => completed.Id == DeliveryId && completed.Status == DeliveryStatus.Completed),
+            Arg.Is<IntegrationEvent>(integrationEvent =>
+                integrationEvent is DeliveryCompletedIntegrationEvent
+                && ((DeliveryCompletedIntegrationEvent)integrationEvent).DeliveryId == DeliveryId
+                && ((DeliveryCompletedIntegrationEvent)integrationEvent).OrderId == OrderId
+                && ((DeliveryCompletedIntegrationEvent)integrationEvent).CustomerId == CustomerId
+                && ((DeliveryCompletedIntegrationEvent)integrationEvent).DeliveredOnUtc == Now),
             Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task CompletingAnUnknownDeliveryThrowsNotFoundAndPublishesNothing()
+    public async Task CompletingAnUnknownDeliveryThrowsNotFoundAndStagesNothing()
     {
         deliveries.FindByIdAsync(DeliveryId, Arg.Any<CancellationToken>()).Returns((DeliveryAggregate?)null);
 
         var complete = async () => await service.CompleteAsync(DeliveryId, CancellationToken.None);
 
         await complete.Should().ThrowAsync<NotFoundException>();
-        await publishEndpoint.DidNotReceiveWithAnyArgs().Publish(default(DeliveryCompletedIntegrationEvent)!, default);
+        await unitOfWork.DidNotReceiveWithAnyArgs().PersistCompletedDeliveryAsync(default!, default!, default);
     }
 
     [Fact]
-    public async Task CompletingAScheduledDeliveryThatNeverWentOutThrowsAndPublishesNothing()
+    public async Task CompletingAScheduledDeliveryThatNeverWentOutThrowsAndStagesNothing()
     {
         var delivery = ScheduledDelivery();
         deliveries.FindByIdAsync(DeliveryId, Arg.Any<CancellationToken>()).Returns(delivery);
@@ -85,8 +86,7 @@ public sealed class CompleteDeliveryServiceTests
         var complete = async () => await service.CompleteAsync(DeliveryId, CancellationToken.None);
 
         await complete.Should().ThrowAsync<DomainException>();
-        await deliveries.DidNotReceiveWithAnyArgs().UpdateAsync(default!, default);
-        await publishEndpoint.DidNotReceiveWithAnyArgs().Publish(default(DeliveryCompletedIntegrationEvent)!, default);
+        await unitOfWork.DidNotReceiveWithAnyArgs().PersistCompletedDeliveryAsync(default!, default!, default);
     }
 
     private static DeliveryAggregate ScheduledDelivery() => DeliveryAggregate.Rehydrate(

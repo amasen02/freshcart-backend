@@ -1,7 +1,6 @@
 using FreshCart.BuildingBlocks.Exceptions;
 using FreshCart.BuildingBlocks.Messaging.IntegrationEvents;
 using FreshCart.Delivery.Application.Abstractions;
-using MassTransit;
 using Microsoft.Extensions.Logging;
 using DeliveryAggregate = FreshCart.Delivery.Domain.Deliveries.Delivery;
 
@@ -9,12 +8,14 @@ namespace FreshCart.Delivery.Application.Fulfilment;
 
 /// <summary>
 /// Use case driving the back-office fulfilment transitions: marking a delivery out for delivery and
-/// completing it. Completion is the moment the rest of the platform cares about, so it publishes
-/// <see cref="DeliveryCompletedIntegrationEvent"/> after the aggregate accepts the transition.
+/// completing it. Completion is the moment the rest of the platform cares about: it stages a
+/// <see cref="DeliveryCompletedIntegrationEvent"/> in the transactional outbox in the same transaction
+/// that persists the completed delivery, so the event cannot be lost on a broker failure. The background
+/// publisher delivers it. Going out for delivery raises no integration event, so it is a plain update.
 /// </summary>
 public sealed partial class CompleteDeliveryService(
     IDeliveryRepository deliveryRepository,
-    IPublishEndpoint publishEndpoint,
+    IDeliveryUnitOfWork deliveryUnitOfWork,
     TimeProvider timeProvider,
     ILogger<CompleteDeliveryService> logger)
 {
@@ -34,19 +35,16 @@ public sealed partial class CompleteDeliveryService(
 
         var completedOnUtc = timeProvider.GetUtcNow();
         delivery.Complete(completedOnUtc);
-        await deliveryRepository.UpdateAsync(delivery, cancellationToken).ConfigureAwait(false);
 
-        await publishEndpoint
-            .Publish(
-                new DeliveryCompletedIntegrationEvent
-                {
-                    OrderId = delivery.OrderId,
-                    DeliveryId = delivery.Id,
-                    CustomerId = delivery.CustomerId,
-                    DeliveredOnUtc = completedOnUtc,
-                },
-                cancellationToken)
-            .ConfigureAwait(false);
+        var completedEvent = new DeliveryCompletedIntegrationEvent
+        {
+            OrderId = delivery.OrderId,
+            DeliveryId = delivery.Id,
+            CustomerId = delivery.CustomerId,
+            DeliveredOnUtc = completedOnUtc,
+        };
+
+        await deliveryUnitOfWork.PersistCompletedDeliveryAsync(delivery, completedEvent, cancellationToken).ConfigureAwait(false);
 
         LogCompleted(delivery.Id, delivery.OrderId, completedOnUtc);
     }

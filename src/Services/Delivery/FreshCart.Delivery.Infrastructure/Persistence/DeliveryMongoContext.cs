@@ -1,3 +1,4 @@
+using FreshCart.BuildingBlocks.Messaging.Outbox;
 using FreshCart.Delivery.Infrastructure.Persistence.Documents;
 using MongoDB.Driver;
 
@@ -14,6 +15,7 @@ public sealed class DeliveryMongoContext
     internal const string ZonesCollectionName = "zones";
     internal const string DriversCollectionName = "drivers";
     internal const string PendingShipmentsCollectionName = "pending-shipments";
+    internal const string OutboxCollectionName = "delivery-outbox";
 
     private readonly IMongoDatabase database;
 
@@ -39,4 +41,7 @@ public sealed class DeliveryMongoContext
 
     internal IMongoCollection<PendingShipmentDocument> PendingShipments =>
         database.GetCollection<PendingShipmentDocument>(PendingShipmentsCollectionName);
+
+    internal IMongoCollection<OutboxMessage> Outbox =>
+        database.GetCollection<OutboxMessage>(OutboxCollectionName);
 }

@@ -1,4 +1,5 @@
 using FreshCart.BuildingBlocks.Messaging.MassTransit;
+using FreshCart.BuildingBlocks.Messaging.Outbox;
 using FreshCart.Delivery.Application.Abstractions;
 using FreshCart.Delivery.Application.Scheduling;
 using FreshCart.Delivery.Infrastructure.Geocoding;
@@ -57,6 +58,8 @@ public static class DependencyInjection
     private static void AddRepositories(IServiceCollection services)
     {
         services.AddScoped<IDeliveryRepository, MongoDeliveryRepository>();
+        services.AddScoped<IDeliveryUnitOfWork, MongoDeliveryUnitOfWork>();
+        services.AddScoped<IOutboxStore, MongoOutboxStore>();
         services.AddScoped<ISlotRepository, MongoSlotRepository>();
         services.AddScoped<IZoneRepository, MongoZoneRepository>();
         services.AddScoped<IDriverRepository, MongoDriverRepository>();

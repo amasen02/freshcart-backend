@@ -19,4 +19,8 @@
     <ProjectReference Include="..\FreshCart.Delivery.Application\FreshCart.Delivery.Application.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="FreshCart.Delivery.Tests" />
+  </ItemGroup>
+
 </Project>
