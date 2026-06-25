@@ -63,6 +63,7 @@ public sealed class RefreshTokenService(
 
         var presentedHash = HashToken(plaintextToken);
         var existingToken = await identityDbContext.RefreshTokens
+            .AsNoTracking()
             .FirstOrDefaultAsync(record => record.TokenHash == presentedHash, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new ForbiddenException("Refresh token is invalid.");
@@ -77,9 +78,18 @@ public sealed class RefreshTokenService(
 
         var newPlaintext = GeneratePlaintextToken();
         var newHash = HashToken(newPlaintext);
-        var newExpiresOnUtc = DateTimeOffset.UtcNow.Add(options.RefreshTokenLifetime);
+        var nowUtc = DateTimeOffset.UtcNow;
+        var newExpiresOnUtc = nowUtc.Add(options.RefreshTokenLifetime);
 
-        existingToken.Revoke(RotationReason, newHash, DateTimeOffset.UtcNow);
+        var rotationsClaimed = await ClaimRotationAsync(presentedHash, newHash, nowUtc, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (rotationsClaimed == 0)
+        {
+            await RevokeAllForUserAsync(existingToken.UserId, ReuseDetectedReason, cancellationToken).ConfigureAwait(false);
+            throw new ForbiddenException("Refresh token is no longer valid.");
+        }
+
         identityDbContext.RefreshTokens.Add(new RefreshToken
         {
             UserId = existingToken.UserId,
@@ -92,6 +102,27 @@ public sealed class RefreshTokenService(
         await identityDbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return new RefreshTokenRotateResult(existingToken.UserId, newPlaintext, newExpiresOnUtc);
     }
+
+    // Claims the rotation with a single atomic conditional update: it revokes the token only if it is still
+    // active, so two requests racing on the same token cannot both rotate it (which would mint two live
+    // tokens from one and defeat reuse detection). A zero-row result means another request already rotated
+    // it — indistinguishable from a stolen-token replay. A single statement rather than a read-then-write
+    // transaction because the DbContext runs a retrying execution strategy, which forbids user transactions.
+    private Task<int> ClaimRotationAsync(
+        string presentedHash,
+        string newHash,
+        DateTimeOffset nowUtc,
+        CancellationToken cancellationToken)
+        => identityDbContext.RefreshTokens
+            .Where(record => record.TokenHash == presentedHash
+                && record.RevokedOnUtc == null
+                && record.ExpiresOnUtc > nowUtc)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(record => record.RevokedOnUtc, nowUtc)
+                    .SetProperty(record => record.RevocationReason, RotationReason)
+                    .SetProperty(record => record.ReplacedByTokenHash, newHash),
+                cancellationToken);
 
     public async Task RevokeAllForUserAsync(Guid userId, string reason, CancellationToken cancellationToken)
     {

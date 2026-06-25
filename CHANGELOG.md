@@ -54,7 +54,7 @@ walkable end-to-end.
   returning 400 on malformed input.
 - Verified: full solution builds with 0 errors; the entire test suite is green &mdash;
   Basket 92, Catalog 155, Payment 82, Ordering 70, Delivery 56, Reviews 53, CustomerSupport 46,
-  Pricing 47, Notification 42, Identity 38, Gateway 38, BuildingBlocks 37, Reporting 42, Inventory 7.
+  Pricing 47, Notification 42, Identity 40, Gateway 38, BuildingBlocks 37, Reporting 42, Inventory 7.
 
 ### Reliability
 
@@ -97,6 +97,16 @@ walkable end-to-end.
   (`INSERT ... ON DUPLICATE KEY UPDATE LastSequence = LAST_INSERT_ID(LastSequence + 1)`) read back via the
   session-scoped `LAST_INSERT_ID()`. Proven with a 25-way concurrent Testcontainers test yielding exactly
   `{1..25}`.
+- **Refresh-token rotation race (ID-COR-01).** `RefreshTokenService.RotateAsync` read the token, checked
+  `IsActive`, then revoked it and issued a replacement in a tracked read-then-write with no concurrency
+  guard, so two requests racing on the same token both passed the check and both rotated &mdash; minting
+  two live tokens from one and defeating reuse detection. Rotation is now claimed with a single atomic
+  conditional `ExecuteUpdate` that revokes the token only while it is still active; a zero-row result means
+  another request already rotated it (indistinguishable from a stolen-token replay) and the whole token
+  family is revoked. A single statement rather than a transaction because the DbContext uses a retrying
+  execution strategy, which forbids user-initiated transactions; a crash between claim and re-issue fails
+  closed (forced re-authentication). Proven with an 8-way concurrent SQL Server Testcontainers test in
+  which exactly one rotation succeeds.
 
 ### Fixed
 
