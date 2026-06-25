@@ -29,10 +29,11 @@ public sealed class PaymentEndpoints : ICarterModule
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         paymentsGroup.MapPost("/{paymentId:guid}/refunds", RefundPaymentAsync)
-            .RequireAuthorization(AuthorizationPolicies.Administrator)
-            .WithSummary("Refund a captured payment, fully or partially.")
+            .RequireAuthorization(ServiceAuthenticationDefaults.ServiceCallerPolicy)
+            .WithSummary("Refund a captured payment, fully or partially. Service-to-service only (the Ordering refund flow); the human-administrator check is enforced at the Ordering edge. Idempotent per Idempotency-Key.")
             .Produces<RefundResultDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
