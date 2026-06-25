@@ -64,8 +64,8 @@ public sealed class OrderConfirmedConsumerTests
         await deliveries.Received(1).AddAsync(
             Arg.Is<DeliveryAggregate>(delivery => delivery.OrderId == OrderId && delivery.DriverId == DriverId),
             Arg.Any<CancellationToken>());
-        await slots.Received(1).UpdateBookingAsync(
-            Arg.Is<DeliverySlot>(slot => slot.BookedCount == 1),
+        await slots.Received(1).TryBookSlotAsync(
+            Arg.Is<DeliverySlot>(slot => slot.Id == openSlot.Id),
             Arg.Any<CancellationToken>());
         await pendingShipments.Received(1).DeleteByOrderIdAsync(OrderId, Arg.Any<CancellationToken>());
         await publishEndpoint.Received(1).Publish(
@@ -99,6 +99,22 @@ public sealed class OrderConfirmedConsumerTests
         var consume = async () => await consumer.Consume(CreateContext());
 
         await consume.Should().ThrowAsync<PendingShipmentNotYetAvailableException>();
+        await publishEndpoint.DidNotReceiveWithAnyArgs().Publish(default(DeliveryScheduledIntegrationEvent)!, default);
+    }
+
+    [Fact]
+    public async Task ThrowsRetriableAndSchedulesNothingWhenTheProposedSlotWasBookedByARace()
+    {
+        var openSlot = DeliverySlot.Create(ZoneId, SlotStart, SlotStart.AddHours(3), capacity: 5);
+        ArrangeDeliverableOrder(openSlot);
+        slots.TryBookSlotAsync(Arg.Any<DeliverySlot>(), Arg.Any<CancellationToken>())
+            .Returns(false);
+
+        var consume = async () => await consumer.Consume(CreateContext());
+
+        await consume.Should().ThrowAsync<SlotNoLongerAvailableException>();
+        await deliveries.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
+        await pendingShipments.DidNotReceiveWithAnyArgs().DeleteByOrderIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
         await publishEndpoint.DidNotReceiveWithAnyArgs().Publish(default(DeliveryScheduledIntegrationEvent)!, default);
     }
 
@@ -138,6 +154,8 @@ public sealed class OrderConfirmedConsumerTests
 
         slots.ListOpenSlotsForZoneAsync(ZoneId, Arg.Any<CancellationToken>())
             .Returns([openSlot]);
+        slots.TryBookSlotAsync(Arg.Any<DeliverySlot>(), Arg.Any<CancellationToken>())
+            .Returns(true);
         drivers.GetActiveDriverRotationAsync(Arg.Any<CancellationToken>())
             .Returns([new DriverAssignment(DriverId, LastAssignedOnUtc: null)]);
     }

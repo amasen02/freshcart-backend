@@ -53,18 +53,24 @@ public sealed class MongoSlotRepository(DeliveryMongoContext context) : ISlotRep
         return documents.Select(DocumentMapper.ToDomain).ToList();
     }
 
-    public Task UpdateBookingAsync(DeliverySlot slot, CancellationToken cancellationToken)
+    public async Task<bool> TryBookSlotAsync(DeliverySlot slot, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(slot);
 
-        var update = Builders<SlotDocument>.Update.Set(stored => stored.BookedCount, slot.BookedCount);
+        // The capacity guard lives in the filter, not in read-then-write code: the increment only matches
+        // a slot that still has free capacity, so two schedulers racing for the last unit cannot both win —
+        // exactly one UpdateOne reports a modified document.
+        var bookFreeUnit = Builders<SlotDocument>.Filter.And(
+            Builders<SlotDocument>.Filter.Eq(stored => stored.Id, slot.Id),
+            HasFreeCapacityFilter);
 
-        return context.Slots
-            .UpdateOneAsync(
-                Builders<SlotDocument>.Filter.Eq(stored => stored.Id, slot.Id),
-                update,
-                options: null,
-                cancellationToken);
+        var update = Builders<SlotDocument>.Update.Inc(stored => stored.BookedCount, 1);
+
+        var result = await context.Slots
+            .UpdateOneAsync(bookFreeUnit, update, options: null, cancellationToken)
+            .ConfigureAwait(false);
+
+        return result.ModifiedCount == 1;
     }
 
     public Task AddAsync(DeliverySlot slot, CancellationToken cancellationToken)

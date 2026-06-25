@@ -91,7 +91,14 @@ public sealed partial class ScheduleDeliveryService(
                 $"No delivery slot with free capacity and an active driver is available in zone {zone.Name} for order {orderId}."));
 
         proposal.Slot.Book();
-        await slotRepository.UpdateBookingAsync(proposal.Slot, cancellationToken).ConfigureAwait(false);
+
+        // The atomic conditional update — not the in-memory Book() above — is what holds the capacity
+        // invariant under concurrency; a false return means a racing scheduler took the last unit, so fail
+        // before creating the delivery and let the retry policy re-schedule against the remaining slots.
+        if (!await slotRepository.TryBookSlotAsync(proposal.Slot, cancellationToken).ConfigureAwait(false))
+        {
+            throw new SlotNoLongerAvailableException(orderId, proposal.Slot.Id);
+        }
 
         var delivery = DeliveryAggregate.Schedule(
             orderId,

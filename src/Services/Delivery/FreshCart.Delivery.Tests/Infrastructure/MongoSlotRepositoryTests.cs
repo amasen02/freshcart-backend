@@ -50,19 +50,38 @@ public sealed class MongoSlotRepositoryTests(MongoIntegrationFixture fixture)
     }
 
     [Fact]
-    public async Task PersistsTheBookedCountSoTheCapacityInvariantSurvivesReload()
+    public async Task BooksAFreeUnitAndPersistsTheCountSoTheInvariantSurvivesReload()
     {
         var zoneId = Guid.NewGuid();
         var slotStart = new DateTimeOffset(2026, 7, 3, 9, 0, 0, TimeSpan.Zero);
         var slot = DeliverySlot.Create(zoneId, slotStart, slotStart.AddHours(3), capacity: 2);
         await repository.AddAsync(slot, CancellationToken.None);
 
-        slot.Book();
-        await repository.UpdateBookingAsync(slot, CancellationToken.None);
+        var booked = await repository.TryBookSlotAsync(slot, CancellationToken.None);
 
+        booked.Should().BeTrue();
         var reloaded = await repository.ListOpenSlotsForZoneAsync(zoneId, CancellationToken.None);
         var persistedSlot = reloaded.Single(stored => stored.Id == slot.Id);
         persistedSlot.BookedCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ConcurrentBookingsNeverOversubscribeTheLastUnitOfCapacity()
+    {
+        const int ConcurrentSchedulers = 20;
+        var zoneId = Guid.NewGuid();
+        var slotStart = new DateTimeOffset(2026, 7, 5, 9, 0, 0, TimeSpan.Zero);
+        var slot = DeliverySlot.Create(zoneId, slotStart, slotStart.AddHours(3), capacity: 1);
+        await repository.AddAsync(slot, CancellationToken.None);
+
+        var bookingAttempts = Enumerable
+            .Range(0, ConcurrentSchedulers)
+            .Select(_ => Task.Run(() => repository.TryBookSlotAsync(slot, CancellationToken.None)));
+        var outcomes = await Task.WhenAll(bookingAttempts);
+
+        outcomes.Count(succeeded => succeeded).Should().Be(1);
+        var reloaded = await repository.ListOpenSlotsForZoneAsync(zoneId, CancellationToken.None);
+        reloaded.Should().NotContain(stored => stored.Id == slot.Id);
     }
 
     [Fact]
