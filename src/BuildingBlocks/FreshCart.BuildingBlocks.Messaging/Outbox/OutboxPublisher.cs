@@ -1,4 +1,5 @@
 using System.Text.Json;
+using FreshCart.BuildingBlocks.Messaging.Events;
 using MassTransit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -96,7 +97,7 @@ public sealed partial class OutboxPublisher(
     {
         try
         {
-            var concreteType = Type.GetType(pendingMessage.EventType, throwOnError: false);
+            var concreteType = EventContractTypeResolver.Resolve(pendingMessage.EventType);
             if (concreteType is null)
             {
                 LogUnresolvableEventType(pendingMessage.EventType, pendingMessage.Id);

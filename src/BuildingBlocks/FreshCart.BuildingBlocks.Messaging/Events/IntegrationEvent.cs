@@ -24,7 +24,11 @@ public abstract record IntegrationEvent
     public DateTimeOffset OccurredOnUtc { get; init; } = DateTimeOffset.UtcNow;
 
     /// <summary>
-    /// Fully-qualified .NET type name. Useful for diagnostics and dead-letter inspection.
+    /// Stable contract name persisted with an outboxed event and used to resolve the CLR type when the
+    /// publisher deserialises it. Deliberately the version-independent <see cref="Type.FullName"/> rather
+    /// than the assembly-qualified name: a message can sit in the outbox across a deployment that bumps the
+    /// assembly version, and an assembly-qualified name would then fail to resolve and dead-letter a
+    /// perfectly good event.
     /// </summary>
-    public string EventType => GetType().AssemblyQualifiedName ?? GetType().FullName ?? GetType().Name;
+    public string EventType => GetType().FullName ?? GetType().Name;
 }

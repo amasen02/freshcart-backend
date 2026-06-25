@@ -53,8 +53,8 @@ walkable end-to-end.
   validates via `InvoiceNumber.TryParse` and addresses the blob with the normalised `parsed.Value`,
   returning 400 on malformed input.
 - Verified: full solution builds with 0 errors; the entire test suite is green &mdash;
-  Basket 92, Catalog 155, Payment 85, Ordering 70, Delivery 56, Reviews 53, CustomerSupport 46,
-  Pricing 47, Notification 42, Identity 40, Gateway 38, BuildingBlocks 37, Reporting 42, Inventory 7.
+  Basket 91, Catalog 155, Payment 85, Ordering 70, Delivery 56, Reviews 53, CustomerSupport 46,
+  Pricing 47, Notification 42, Identity 40, Gateway 38, BuildingBlocks 46, Reporting 42, Inventory 7.
 
 ### Reliability
 
@@ -117,6 +117,15 @@ walkable end-to-end.
   the key is recorded on the `PaymentRefunded` event and the handler replays the recorded outcome instead
   of re-refunding when the key is already present. Proven with a handler test (retry replays without
   touching the provider) plus aggregate and validator tests.
+- **Stable integration-event contract name (BB-002).** `IntegrationEvent.EventType` returned
+  `GetType().AssemblyQualifiedName`, and the outbox publisher resolves the CLR type from it via
+  `Type.GetType(EventType)` before deserialising and publishing. Because the assembly-qualified name
+  embeds the assembly version, an event sitting in the outbox across a deployment that bumped the version
+  would fail to resolve and be dead-lettered &mdash; a live event silently lost. `EventType` now returns
+  the version-independent `Type.FullName`, and a new `EventContractTypeResolver` resolves it robustly
+  (direct lookup, then a loaded-assembly scan) so resolution no longer depends on the assembly version or
+  on which assembly hosts the publisher; legacy assembly-qualified rows still resolve, so no migration is
+  needed. Proven with resolver tests (stable name, legacy name, unknown name) and a contract-name format test.
 
 ### Fixed
 

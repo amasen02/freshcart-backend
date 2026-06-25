@@ -89,7 +89,7 @@ public sealed class CheckoutCommandHandlerTests
         await _unitOfWork.Received(1).CommitCheckoutAsync(
             Arg.Is<ArchivedBasket>(archived => archived.Id == checkoutResult.OrderId),
             Arg.Is<OutboxMessage>(outboxMessage =>
-                outboxMessage.EventType == typeof(BasketCheckoutStartedIntegrationEvent).AssemblyQualifiedName),
+                outboxMessage.EventType == typeof(BasketCheckoutStartedIntegrationEvent).FullName),
             command.CustomerId,
             Arg.Any<CancellationToken>());
     }
