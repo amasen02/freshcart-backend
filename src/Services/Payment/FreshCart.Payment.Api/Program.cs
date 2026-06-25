@@ -6,6 +6,7 @@ using FreshCart.BuildingBlocks.Security;
 using FreshCart.Payment.Api;
 using FreshCart.Payment.Application;
 using FreshCart.Payment.Infrastructure;
+using FreshCart.Payment.Infrastructure.Projections;
 using FreshCart.Payment.Infrastructure.ReadModel;
 using FreshCart.ServiceDefaults;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -29,6 +30,12 @@ webApplicationBuilder.AddFreshCartServiceDefaults();
 webApplicationBuilder.Services
     .AddPaymentApplication()
     .AddPaymentInfrastructure(webApplicationBuilder.Configuration);
+
+// The SQL read model is projected asynchronously: each event append stages a projection intent in its
+// Mongo transaction, and this background worker drains it into SQL idempotently.
+webApplicationBuilder.Services.Configure<PaymentProjectionOptions>(
+    webApplicationBuilder.Configuration.GetSection(PaymentProjectionOptions.SectionName));
+webApplicationBuilder.Services.AddHostedService<PaymentReadModelProjectorService>();
 
 webApplicationBuilder.Services.AddCarter();
 webApplicationBuilder.Services.AddEndpointsApiExplorer();

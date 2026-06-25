@@ -2,7 +2,6 @@ using FluentAssertions;
 using FreshCart.BuildingBlocks.Exceptions;
 using FreshCart.Payment.Application.Abstractions;
 using FreshCart.Payment.Application.Payments.Commands.RefundPayment;
-using FreshCart.Payment.Application.Payments.Models;
 using FreshCart.Payment.Domain;
 using FreshCart.Payment.Domain.Events;
 using FreshCart.Payment.Tests.Common;
@@ -28,11 +27,9 @@ public sealed class RefundPaymentCommandHandlerTests
     private const string ProviderRejectionReason = "The settlement window for this transaction has closed.";
 
     private readonly IPaymentEventStore _paymentEventStore = Substitute.For<IPaymentEventStore>();
-    private readonly IPaymentReadModelWriter _paymentReadModelWriter = Substitute.For<IPaymentReadModelWriter>();
     private readonly IPaymentProvider _paymentProvider = Substitute.For<IPaymentProvider>();
 
     private readonly List<IReadOnlyList<IPaymentEvent>> _appendedBatches = [];
-    private readonly List<PaymentReadModel> _projectedModels = [];
 
     private readonly RefundPaymentCommandHandler _commandHandler;
 
@@ -41,25 +38,21 @@ public sealed class RefundPaymentCommandHandlerTests
         _paymentEventStore
             .AppendAsync(
                 Arg.Any<Guid>(),
+                Arg.Any<Guid>(),
                 Arg.Any<int>(),
                 Arg.Do<IReadOnlyList<IPaymentEvent>>(_appendedBatches.Add),
                 Arg.Any<CancellationToken>())
             .Returns(Task.CompletedTask);
 
-        _paymentReadModelWriter
-            .UpsertAsync(Arg.Do<PaymentReadModel>(_projectedModels.Add), Arg.Any<CancellationToken>())
-            .Returns(Task.CompletedTask);
-
         _commandHandler = new RefundPaymentCommandHandler(
             _paymentEventStore,
-            _paymentReadModelWriter,
             _paymentProvider,
             new FixedTimeProvider(RefundInstant),
             NullLogger<RefundPaymentCommandHandler>.Instance);
     }
 
     [Fact]
-    public async Task PartialRefundAppendsPaymentRefundedAndProjectsPartiallyRefunded()
+    public async Task PartialRefundAppendsPaymentRefundedAgainstTheLoadedStream()
     {
         StreamContainsCapturedPayment();
         ProviderApprovesRefund(30.00m);
@@ -78,14 +71,10 @@ public sealed class RefundPaymentCommandHandlerTests
         refunded.Version.Should().Be(4);
         refunded.Amount.Should().Be(30.00m);
         refunded.Reason.Should().Be(RefundReason);
-
-        var projectedModel = _projectedModels.Should().ContainSingle().Subject;
-        projectedModel.Status.Should().Be(PaymentStatus.PartiallyRefunded);
-        projectedModel.RefundedAmount.Should().Be(30.00m);
     }
 
     [Fact]
-    public async Task FullRefundProjectsTheRefundedStatus()
+    public async Task FullRefundReturnsTheRefundedStatus()
     {
         StreamContainsCapturedPayment();
         ProviderApprovesRefund(CapturedAmount);
@@ -103,8 +92,10 @@ public sealed class RefundPaymentCommandHandlerTests
         StreamContainsCapturedPayment();
         ProviderApprovesRefund(10.00m);
         var observedExpectedVersions = new List<int>();
+        var observedOrderIds = new List<Guid>();
         _paymentEventStore
             .AppendAsync(
+                Arg.Do<Guid>(observedOrderIds.Add),
                 Arg.Any<Guid>(),
                 Arg.Do<int>(observedExpectedVersions.Add),
                 Arg.Any<IReadOnlyList<IPaymentEvent>>(),
@@ -115,6 +106,7 @@ public sealed class RefundPaymentCommandHandlerTests
             new RefundPaymentCommand(PaymentId, 10.00m, RefundReason, RefundIdempotencyKey), CancellationToken.None);
 
         observedExpectedVersions.Should().ContainSingle().Which.Should().Be(3);
+        observedOrderIds.Should().ContainSingle().Which.Should().Be(OrderId);
     }
 
     [Fact]
@@ -131,7 +123,7 @@ public sealed class RefundPaymentCommandHandlerTests
     }
 
     [Fact]
-    public async Task ProviderRejectionLeavesTheStreamAndReadModelUntouched()
+    public async Task ProviderRejectionLeavesTheStreamUntouched()
     {
         StreamContainsCapturedPayment();
         _paymentProvider
@@ -144,7 +136,6 @@ public sealed class RefundPaymentCommandHandlerTests
         (await refundRejectedByProvider.Should().ThrowAsync<BadRequestException>())
             .Which.Detail.Should().Be(ProviderRejectionReason);
         _appendedBatches.Should().BeEmpty();
-        _projectedModels.Should().BeEmpty();
     }
 
     [Fact]
@@ -181,7 +172,6 @@ public sealed class RefundPaymentCommandHandlerTests
         refundResult.RefundedAmount.Should().Be(30.00m);
         await _paymentProvider.DidNotReceiveWithAnyArgs().RefundAsync(default!, default, default!, default);
         _appendedBatches.Should().BeEmpty();
-        _projectedModels.Should().BeEmpty();
     }
 
     private void StreamContainsCapturedPayment() =>

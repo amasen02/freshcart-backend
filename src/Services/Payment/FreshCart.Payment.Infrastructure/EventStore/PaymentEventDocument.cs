@@ -18,6 +18,12 @@ public sealed class PaymentEventDocument
     [BsonGuidRepresentation(GuidRepresentation.Standard)]
     public Guid PaymentId { get; set; }
 
+    // Denormalised onto every event so the one-payment-per-order invariant and the OrderId -> stream
+    // lookup live in the event store (the source of truth) rather than the asynchronously-projected
+    // read model. A partial unique index on Version 1 enforces a single payment per order.
+    [BsonGuidRepresentation(GuidRepresentation.Standard)]
+    public Guid OrderId { get; set; }
+
     public int Version { get; set; }
 
     public string EventType { get; set; } = string.Empty;

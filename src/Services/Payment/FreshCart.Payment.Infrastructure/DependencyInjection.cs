@@ -1,5 +1,6 @@
 using FreshCart.Payment.Application.Abstractions;
 using FreshCart.Payment.Infrastructure.EventStore;
+using FreshCart.Payment.Infrastructure.Projections;
 using FreshCart.Payment.Infrastructure.Providers;
 using FreshCart.Payment.Infrastructure.ReadModel;
 using Microsoft.Extensions.Configuration;
@@ -43,6 +44,11 @@ public static class DependencyInjection
         services.AddScoped<IPaymentReadQueries, DapperPaymentReadQueries>();
 
         services.AddSingleton<IPaymentProvider, SimulatedCardPaymentProvider>();
+
+        // The event append stages a projection intent in its Mongo transaction; this background projector
+        // drains it into the SQL read model idempotently, closing the former Mongo+SQL dual write.
+        services.AddSingleton<MongoPaymentProjectionOutbox>();
+        services.AddScoped<PaymentReadModelProjector>();
 
         services.AddHostedService<PaymentPersistenceInitializer>();
 

@@ -34,7 +34,7 @@ public sealed class MongoPaymentEventStoreTests : IDisposable
         // Every test class instance gets its own database so xunit's parallel test runs can never
         // observe each other's streams or index state.
         var isolatedDatabaseName = $"paymentevents_{Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture)}";
-        _eventStore = new MongoPaymentEventStore(_mongoClient.GetDatabase(isolatedDatabaseName));
+        _eventStore = new MongoPaymentEventStore(_mongoClient, _mongoClient.GetDatabase(isolatedDatabaseName));
     }
 
     public void Dispose() => _mongoClient.Dispose();
@@ -52,7 +52,7 @@ public sealed class MongoPaymentEventStoreTests : IDisposable
             new PaymentRefunded(paymentId, 4, FirstEventInstant.AddMinutes(5), 20.00m, RefundReason, paymentId.ToString()),
         ];
 
-        await _eventStore.AppendAsync(paymentId, expectedVersion: 0, writtenStream, CancellationToken.None);
+        await _eventStore.AppendAsync(OrderId, paymentId, expectedVersion: 0, writtenStream, CancellationToken.None);
         var loadedStream = await _eventStore.LoadStreamAsync(paymentId, CancellationToken.None);
 
         loadedStream.Should().Equal(writtenStream);
@@ -73,9 +73,9 @@ public sealed class MongoPaymentEventStoreTests : IDisposable
     {
         await _eventStore.EnsureIndexesAsync(CancellationToken.None);
         var paymentId = Guid.NewGuid();
-        await _eventStore.AppendAsync(paymentId, expectedVersion: 0, [InitiatedEvent(paymentId)], CancellationToken.None);
+        await _eventStore.AppendAsync(OrderId, paymentId, expectedVersion: 0, [InitiatedEvent(paymentId)], CancellationToken.None);
 
-        var appendSameVersionAgain = () => _eventStore.AppendAsync(
+        var appendSameVersionAgain = () => _eventStore.AppendAsync(OrderId, 
             paymentId,
             expectedVersion: 0,
             [InitiatedEvent(paymentId)],
@@ -90,11 +90,11 @@ public sealed class MongoPaymentEventStoreTests : IDisposable
     {
         await _eventStore.EnsureIndexesAsync(CancellationToken.None);
         var paymentId = Guid.NewGuid();
-        await _eventStore.AppendAsync(paymentId, expectedVersion: 0, [InitiatedEvent(paymentId)], CancellationToken.None);
+        await _eventStore.AppendAsync(OrderId, paymentId, expectedVersion: 0, [InitiatedEvent(paymentId)], CancellationToken.None);
         var winningAuthorization = new PaymentAuthorized(paymentId, 2, FirstEventInstant.AddSeconds(1), ProviderReference);
-        await _eventStore.AppendAsync(paymentId, expectedVersion: 1, [winningAuthorization], CancellationToken.None);
+        await _eventStore.AppendAsync(OrderId, paymentId, expectedVersion: 1, [winningAuthorization], CancellationToken.None);
 
-        var staleDecline = () => _eventStore.AppendAsync(
+        var staleDecline = () => _eventStore.AppendAsync(OrderId, 
             paymentId,
             expectedVersion: 1,
             [new PaymentDeclined(paymentId, 2, FirstEventInstant.AddSeconds(1), "Stale writer decline.")],
@@ -110,7 +110,7 @@ public sealed class MongoPaymentEventStoreTests : IDisposable
     [Fact]
     public Task AppendingAnEmptyBatchIsRejected()
     {
-        var appendNothing = () => _eventStore.AppendAsync(
+        var appendNothing = () => _eventStore.AppendAsync(OrderId, 
             Guid.NewGuid(), expectedVersion: 0, [], CancellationToken.None);
 
         return appendNothing.Should().ThrowAsync<ArgumentException>();
@@ -122,7 +122,7 @@ public sealed class MongoPaymentEventStoreTests : IDisposable
         var paymentId = Guid.NewGuid();
         var eventSkippingAVersion = new PaymentAuthorized(paymentId, 3, FirstEventInstant, ProviderReference);
 
-        var appendWithGap = () => _eventStore.AppendAsync(
+        var appendWithGap = () => _eventStore.AppendAsync(OrderId, 
             paymentId, expectedVersion: 1, [eventSkippingAVersion], CancellationToken.None);
 
         (await appendWithGap.Should().ThrowAsync<ArgumentException>())
@@ -135,7 +135,7 @@ public sealed class MongoPaymentEventStoreTests : IDisposable
         var paymentId = Guid.NewGuid();
         var foreignEvent = InitiatedEvent(Guid.NewGuid());
 
-        var appendForeignEvent = () => _eventStore.AppendAsync(
+        var appendForeignEvent = () => _eventStore.AppendAsync(OrderId, 
             paymentId, expectedVersion: 0, [foreignEvent], CancellationToken.None);
 
         return appendForeignEvent.Should().ThrowAsync<ArgumentException>();

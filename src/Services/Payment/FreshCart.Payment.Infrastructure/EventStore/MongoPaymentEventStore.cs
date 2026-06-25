@@ -2,6 +2,7 @@ using System.Globalization;
 using FreshCart.BuildingBlocks.Exceptions;
 using FreshCart.Payment.Application.Abstractions;
 using FreshCart.Payment.Domain.Events;
+using FreshCart.Payment.Infrastructure.Projections;
 using MongoDB.Driver;
 
 namespace FreshCart.Payment.Infrastructure.EventStore;
@@ -9,7 +10,10 @@ namespace FreshCart.Payment.Infrastructure.EventStore;
 /// <summary>
 /// MongoDB-backed event store. Optimistic concurrency rides on the unique compound index over
 /// (PaymentId, Version): a concurrent writer that already appended the same version turns the
-/// insert into a duplicate-key error, which surfaces as a <see cref="ConflictException"/>.
+/// insert into a duplicate-key error, which surfaces as a <see cref="ConflictException"/>. The
+/// one-payment-per-order invariant rides on a partial unique index over the OrderId of the initiating
+/// event. Each append also stages a projection marker in the <em>same transaction</em> as the events, so
+/// the SQL read model is projected exactly-once by the background projector without a dual write.
 /// </summary>
 public sealed class MongoPaymentEventStore : IPaymentEventStore
 {
@@ -18,14 +22,23 @@ public sealed class MongoPaymentEventStore : IPaymentEventStore
     public const string CollectionName = "payment_events";
 
     private const string StreamVersionIndexName = "UX_payment_events_PaymentId_Version";
+    private const string OrderInvariantIndexName = "UX_payment_events_OrderId_initiate";
+    private const int InitiatingVersion = 1;
+    private const int DuplicateKeyErrorCode = 11000;
 
+    private readonly IMongoClient _mongoClient;
     private readonly IMongoCollection<PaymentEventDocument> _eventsCollection;
+    private readonly IMongoCollection<PaymentProjectionOutboxDocument> _projectionOutboxCollection;
 
-    public MongoPaymentEventStore(IMongoDatabase eventStoreDatabase)
+    public MongoPaymentEventStore(IMongoClient mongoClient, IMongoDatabase eventStoreDatabase)
     {
+        ArgumentNullException.ThrowIfNull(mongoClient);
         ArgumentNullException.ThrowIfNull(eventStoreDatabase);
 
+        _mongoClient = mongoClient;
         _eventsCollection = eventStoreDatabase.GetCollection<PaymentEventDocument>(CollectionName);
+        _projectionOutboxCollection = eventStoreDatabase
+            .GetCollection<PaymentProjectionOutboxDocument>(PaymentProjectionOutboxDocument.CollectionName);
     }
 
     public Task EnsureIndexesAsync(CancellationToken cancellationToken)
@@ -36,10 +49,24 @@ public sealed class MongoPaymentEventStore : IPaymentEventStore
                 .Ascending(document => document.Version),
             new CreateIndexOptions { Unique = true, Name = StreamVersionIndexName });
 
-        return _eventsCollection.Indexes.CreateOneAsync(streamVersionIndex, cancellationToken: cancellationToken);
+        // One payment per order, enforced at the source of truth: a partial unique index over the OrderId
+        // of the version-1 (initiating) event rejects a second initiate for the same order with a
+        // duplicate-key error, so two concurrent captures of one order cannot both create a stream.
+        var orderInvariantIndex = new CreateIndexModel<PaymentEventDocument>(
+            Builders<PaymentEventDocument>.IndexKeys.Ascending(document => document.OrderId),
+            new CreateIndexOptions<PaymentEventDocument>
+            {
+                Unique = true,
+                Name = OrderInvariantIndexName,
+                PartialFilterExpression = Builders<PaymentEventDocument>.Filter.Eq(document => document.Version, InitiatingVersion),
+            });
+
+        return _eventsCollection.Indexes
+            .CreateManyAsync([streamVersionIndex, orderInvariantIndex], cancellationToken);
     }
 
     public async Task AppendAsync(
+        Guid orderId,
         Guid paymentId,
         int expectedVersion,
         IReadOnlyList<IPaymentEvent> newEvents,
@@ -52,20 +79,36 @@ public sealed class MongoPaymentEventStore : IPaymentEventStore
             throw new ArgumentException("At least one event is required to append.", nameof(newEvents));
         }
 
-        var documents = BuildDocuments(paymentId, expectedVersion, newEvents);
+        var documents = BuildDocuments(orderId, paymentId, expectedVersion, newEvents);
+        var projectionMarker = new PaymentProjectionOutboxDocument
+        {
+            PaymentId = paymentId,
+            OccurredOnUtc = newEvents[^1].OccurredOnUtc,
+        };
 
+        using var session = await _mongoClient.StartSessionAsync(options: null, cancellationToken).ConfigureAwait(false);
+        session.StartTransaction();
         try
         {
             await _eventsCollection
-                .InsertManyAsync(documents, new InsertManyOptions { IsOrdered = true }, cancellationToken)
+                .InsertManyAsync(session, documents, new InsertManyOptions { IsOrdered = true }, cancellationToken)
                 .ConfigureAwait(false);
+            await _projectionOutboxCollection
+                .InsertOneAsync(session, projectionMarker, options: null, cancellationToken)
+                .ConfigureAwait(false);
+            await session.CommitTransactionAsync(cancellationToken).ConfigureAwait(false);
         }
-        catch (MongoBulkWriteException bulkWriteException) when (
-            bulkWriteException.WriteErrors.Any(writeError => writeError.Category == ServerErrorCategory.DuplicateKey))
+        catch (MongoException mongoException) when (IsDuplicateKey(mongoException))
         {
+            await session.AbortTransactionAsync(CancellationToken.None).ConfigureAwait(false);
             throw new ConflictException(string.Create(
                 CultureInfo.InvariantCulture,
-                $"Payment stream {paymentId} was modified concurrently; expected version {expectedVersion}."));
+                $"Payment stream {paymentId} (order {orderId}) was modified concurrently; expected version {expectedVersion}."));
+        }
+        catch
+        {
+            await session.AbortTransactionAsync(CancellationToken.None).ConfigureAwait(false);
+            throw;
         }
     }
 
@@ -84,7 +127,28 @@ public sealed class MongoPaymentEventStore : IPaymentEventStore
             .ToArray();
     }
 
+    public async Task<Guid?> FindStreamIdByOrderIdAsync(Guid orderId, CancellationToken cancellationToken)
+    {
+        var paymentId = await _eventsCollection
+            .Find(document => document.OrderId == orderId)
+            .Project(document => document.PaymentId)
+            .Limit(1)
+            .FirstOrDefaultAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        return paymentId == Guid.Empty ? null : paymentId;
+    }
+
+    private static bool IsDuplicateKey(MongoException exception) => exception switch
+    {
+        MongoBulkWriteException bulkWrite => bulkWrite.WriteErrors.Any(error => error.Category == ServerErrorCategory.DuplicateKey),
+        MongoWriteException write => write.WriteError?.Category == ServerErrorCategory.DuplicateKey,
+        MongoCommandException command => command.Code == DuplicateKeyErrorCode,
+        _ => false,
+    };
+
     private static List<PaymentEventDocument> BuildDocuments(
+        Guid orderId,
         Guid paymentId,
         int expectedVersion,
         IReadOnlyList<IPaymentEvent> newEvents)
@@ -106,6 +170,7 @@ public sealed class MongoPaymentEventStore : IPaymentEventStore
             documents.Add(new PaymentEventDocument
             {
                 PaymentId = paymentEvent.PaymentId,
+                OrderId = orderId,
                 Version = paymentEvent.Version,
                 EventType = PaymentEventSerializer.GetEventTypeName(paymentEvent),
                 PayloadJson = PaymentEventSerializer.Serialize(paymentEvent),

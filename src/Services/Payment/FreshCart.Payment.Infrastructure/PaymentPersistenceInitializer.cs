@@ -1,4 +1,5 @@
 using FreshCart.Payment.Infrastructure.EventStore;
+using FreshCart.Payment.Infrastructure.Projections;
 using FreshCart.Payment.Infrastructure.ReadModel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -7,12 +8,13 @@ using Microsoft.Extensions.Logging;
 namespace FreshCart.Payment.Infrastructure;
 
 /// <summary>
-/// Applies the idempotent read-model schema and the event-store unique index on startup so a
-/// fresh environment is queryable before the first request arrives.
+/// Applies the idempotent read-model schema, the event-store indexes and the projection-outbox poll
+/// index on startup so a fresh environment is queryable and projectable before the first request arrives.
 /// </summary>
 public sealed partial class PaymentPersistenceInitializer(
     IServiceScopeFactory serviceScopeFactory,
     MongoPaymentEventStore paymentEventStore,
+    MongoPaymentProjectionOutbox projectionOutbox,
     ILogger<PaymentPersistenceInitializer> logger) : IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -26,6 +28,7 @@ public sealed partial class PaymentPersistenceInitializer(
         }
 
         await paymentEventStore.EnsureIndexesAsync(cancellationToken).ConfigureAwait(false);
+        await projectionOutbox.EnsureIndexesAsync(cancellationToken).ConfigureAwait(false);
 
         LogPersistenceVerified();
     }

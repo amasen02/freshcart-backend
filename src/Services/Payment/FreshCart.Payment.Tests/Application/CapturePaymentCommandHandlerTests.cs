@@ -1,7 +1,6 @@
 using FluentAssertions;
 using FreshCart.Payment.Application.Abstractions;
 using FreshCart.Payment.Application.Payments.Commands.CapturePayment;
-using FreshCart.Payment.Application.Payments.Models;
 using FreshCart.Payment.Domain;
 using FreshCart.Payment.Domain.Events;
 using FreshCart.Payment.Tests.Common;
@@ -26,37 +25,30 @@ public sealed class CapturePaymentCommandHandlerTests
     private const string CaptureDeclineReason = "The authorization expired before capture.";
 
     private readonly IPaymentEventStore _paymentEventStore = Substitute.For<IPaymentEventStore>();
-    private readonly IPaymentReadModelWriter _paymentReadModelWriter = Substitute.For<IPaymentReadModelWriter>();
-    private readonly IPaymentReadQueries _paymentReadQueries = Substitute.For<IPaymentReadQueries>();
     private readonly IPaymentProvider _paymentProvider = Substitute.For<IPaymentProvider>();
 
     private readonly List<IReadOnlyList<IPaymentEvent>> _appendedBatches = [];
-    private readonly List<PaymentReadModel> _projectedModels = [];
 
     private readonly CapturePaymentCommandHandler _commandHandler;
 
     public CapturePaymentCommandHandlerTests()
     {
+        // The idempotency check now reads the event store (the source of truth), not the read model.
+        _paymentEventStore
+            .FindStreamIdByOrderIdAsync(OrderId, Arg.Any<CancellationToken>())
+            .Returns((Guid?)null);
+
         _paymentEventStore
             .AppendAsync(
+                Arg.Any<Guid>(),
                 Arg.Any<Guid>(),
                 Arg.Any<int>(),
                 Arg.Do<IReadOnlyList<IPaymentEvent>>(_appendedBatches.Add),
                 Arg.Any<CancellationToken>())
             .Returns(Task.CompletedTask);
 
-        _paymentReadModelWriter
-            .UpsertAsync(Arg.Do<PaymentReadModel>(_projectedModels.Add), Arg.Any<CancellationToken>())
-            .Returns(Task.CompletedTask);
-
-        _paymentReadQueries
-            .FindByOrderIdAsync(OrderId, Arg.Any<CancellationToken>())
-            .Returns((PaymentReadModel?)null);
-
         _commandHandler = new CapturePaymentCommandHandler(
             _paymentEventStore,
-            _paymentReadModelWriter,
-            _paymentReadQueries,
             _paymentProvider,
             new FixedTimeProvider(CaptureInstant),
             NullLogger<CapturePaymentCommandHandler>.Instance);
@@ -79,21 +71,18 @@ public sealed class CapturePaymentCommandHandlerTests
             .Should().ContainInOrder(typeof(PaymentInitiated), typeof(PaymentAuthorized), typeof(PaymentCaptured));
         _appendedBatches.SelectMany(batch => batch).Select(paymentEvent => paymentEvent.Version)
             .Should().ContainInOrder(1, 2, 3);
-
-        _projectedModels.Select(model => model.Status).Should().ContainInOrder(
-            PaymentStatus.Initiated, PaymentStatus.Authorized, PaymentStatus.Captured);
-        _projectedModels[^1].ProviderReference.Should().Be(ProviderReference);
-        _projectedModels[^1].Amount.Should().Be(Amount);
     }
 
     [Fact]
-    public async Task EveryAppendUsesTheVersionObservedBeforeTheNewEventsWereRaised()
+    public async Task EveryAppendCarriesTheOrderIdAndTheVersionObservedBeforeTheNewEventsWereRaised()
     {
         ProviderAuthorizes();
         ProviderCaptures();
+        var observedOrderIds = new List<Guid>();
         var observedExpectedVersions = new List<int>();
         _paymentEventStore
             .AppendAsync(
+                Arg.Do<Guid>(observedOrderIds.Add),
                 Arg.Any<Guid>(),
                 Arg.Do<int>(observedExpectedVersions.Add),
                 Arg.Any<IReadOnlyList<IPaymentEvent>>(),
@@ -103,15 +92,16 @@ public sealed class CapturePaymentCommandHandlerTests
         await _commandHandler.Handle(CaptureCommand(), CancellationToken.None);
 
         observedExpectedVersions.Should().ContainInOrder(0, 1, 2);
+        observedOrderIds.Should().OnlyContain(orderId => orderId == OrderId);
     }
 
     [Fact]
     public async Task SecondCaptureForTheSameOrderReplaysTheRecordedOutcomeWithoutNewEvents()
     {
         var existingPaymentId = Guid.Parse("66666666-6666-6666-6666-666666666666");
-        _paymentReadQueries
-            .FindByOrderIdAsync(OrderId, Arg.Any<CancellationToken>())
-            .Returns(ExistingReadModel(existingPaymentId));
+        _paymentEventStore
+            .FindStreamIdByOrderIdAsync(OrderId, Arg.Any<CancellationToken>())
+            .Returns(existingPaymentId);
         _paymentEventStore
             .LoadStreamAsync(existingPaymentId, Arg.Any<CancellationToken>())
             .Returns(CapturedStream(existingPaymentId));
@@ -123,7 +113,6 @@ public sealed class CapturePaymentCommandHandlerTests
         captureResult.FailureReason.Should().BeNull();
 
         _appendedBatches.Should().BeEmpty();
-        _projectedModels.Should().BeEmpty();
         await _paymentProvider.DidNotReceiveWithAnyArgs().AuthorizeAsync(default!, default);
         await _paymentProvider.DidNotReceiveWithAnyArgs().CaptureAsync(default!, default, default!, default);
     }
@@ -132,9 +121,9 @@ public sealed class CapturePaymentCommandHandlerTests
     public async Task IdempotentReplayOfADeclinedPaymentPreservesTheOriginalFailureReason()
     {
         var existingPaymentId = Guid.Parse("77777777-7777-7777-7777-777777777777");
-        _paymentReadQueries
-            .FindByOrderIdAsync(OrderId, Arg.Any<CancellationToken>())
-            .Returns(ExistingReadModel(existingPaymentId));
+        _paymentEventStore
+            .FindStreamIdByOrderIdAsync(OrderId, Arg.Any<CancellationToken>())
+            .Returns(existingPaymentId);
         _paymentEventStore
             .LoadStreamAsync(existingPaymentId, Arg.Any<CancellationToken>())
             .Returns(new IPaymentEvent[]
@@ -168,7 +157,6 @@ public sealed class CapturePaymentCommandHandlerTests
             .Which.Should().BeOfType<PaymentDeclined>()
             .Which.Reason.Should().Be(IssuerDeclineReason);
 
-        _projectedModels[^1].Status.Should().Be(PaymentStatus.Declined);
         await _paymentProvider.DidNotReceiveWithAnyArgs().CaptureAsync(default!, default, default!, default);
     }
 
@@ -187,24 +175,10 @@ public sealed class CapturePaymentCommandHandlerTests
 
         _appendedBatches.SelectMany(batch => batch).Select(paymentEvent => paymentEvent.GetType())
             .Should().ContainInOrder(typeof(PaymentInitiated), typeof(PaymentAuthorized), typeof(PaymentDeclined));
-        _projectedModels[^1].Status.Should().Be(PaymentStatus.Declined);
     }
 
     private static CapturePaymentCommand CaptureCommand() =>
         new(OrderId, CustomerId, Amount, CurrencyCode, CardMethod, IdempotencyKey);
-
-    private static PaymentReadModel ExistingReadModel(Guid paymentId) => new(
-        paymentId,
-        OrderId,
-        CustomerId,
-        Amount,
-        RefundedAmount: 0m,
-        CurrencyCode,
-        CardMethod,
-        PaymentStatus.Captured,
-        ProviderReference,
-        CaptureInstant,
-        CaptureInstant);
 
     private static PaymentInitiated InitiatedEvent(Guid paymentId) => new(
         paymentId, 1, CaptureInstant, OrderId, CustomerId, Amount, CurrencyCode, CardMethod);
