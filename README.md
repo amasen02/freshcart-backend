@@ -203,6 +203,10 @@ callers) rather than asserted in prose:
   customer twice. (ORD-002)
 - **Durable event contracts.** Outboxed events resolve by their version-independent type name, so a
   deployment that bumps an assembly version never dead-letters an in-flight event. (BB-002)
+- **No duplicate outbox publishes across replicas.** Each drain *claims* its batch with an atomic
+  conditional update (EF Core `ExecuteUpdate` on SQL Server, Marten `Patch` on PostgreSQL) and a
+  crash-recovering lease, so two publisher replicas always claim disjoint sets. *Proven by a concurrent
+  two-drainer test per store.* (BSK-01)
 
 Every item traces to an audit finding; the fixes and their verification are recorded in
 [`CHANGELOG.md`](CHANGELOG.md), and the originating review is

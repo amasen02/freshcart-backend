@@ -19,6 +19,14 @@ public sealed class OutboxMessage
     /// <summary>Marker prefixed onto <see cref="Error"/> when a message is retired without publishing.</summary>
     public const string DeadLetterErrorPrefix = "DEAD-LETTERED";
 
+    /// <summary>
+    /// How long a claim is honoured before another publisher may re-claim the message. It bounds how long
+    /// a crash between claiming and publishing can strand a message: once the lease lapses a different
+    /// instance picks it up. Comfortably larger than a normal publish so a healthy in-progress message is
+    /// never stolen mid-flight.
+    /// </summary>
+    public static readonly TimeSpan ClaimLeaseTimeout = TimeSpan.FromMinutes(2);
+
     public Guid Id { get; init; } = Guid.NewGuid();
 
     public required string EventType { get; init; }
@@ -32,6 +40,17 @@ public sealed class OutboxMessage
     public string? Error { get; set; }
 
     public int RetryAttempt { get; set; }
+
+    /// <summary>
+    /// Identifies the publisher instance that has claimed this message for the current drain cycle.
+    /// A claim is what lets multiple publisher replicas drain the same outbox without both publishing
+    /// the same message: the store hands a message out only after atomically stamping this column, so a
+    /// second drainer racing for the same row finds it already claimed.
+    /// </summary>
+    public Guid? ClaimId { get; set; }
+
+    /// <summary>When the current <see cref="ClaimId"/> was taken; used to expire a stale claim.</summary>
+    public DateTimeOffset? ClaimedOnUtc { get; set; }
 
     /// <summary>
     /// True once the message has been retired without ever publishing: it carries a terminal processed
@@ -64,6 +83,17 @@ public sealed class OutboxMessage
 
         Error = Truncate(error);
         return false;
+    }
+
+    /// <summary>
+    /// Releases the claim so the message becomes immediately re-claimable. Called after a transient
+    /// publish failure that did not dead-letter the message, so a retry is not stalled until the lease
+    /// would otherwise lapse.
+    /// </summary>
+    public void ReleaseClaim()
+    {
+        ClaimId = null;
+        ClaimedOnUtc = null;
     }
 
     private static string Truncate(string value) =>

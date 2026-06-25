@@ -26,6 +26,8 @@ public sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outbox
         builder.Property(message => message.ProcessedOnUtc);
         builder.Property(message => message.Error).HasMaxLength(OrderingFieldLengths.FailureReason);
         builder.Property(message => message.RetryAttempt).IsRequired();
+        builder.Property(message => message.ClaimId);
+        builder.Property(message => message.ClaimedOnUtc);
 
         builder.HasIndex(message => message.ProcessedOnUtc)
             .HasFilter("[ProcessedOnUtc] IS NULL");

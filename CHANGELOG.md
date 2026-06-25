@@ -53,7 +53,7 @@ walkable end-to-end.
   validates via `InvoiceNumber.TryParse` and addresses the blob with the normalised `parsed.Value`,
   returning 400 on malformed input.
 - Verified: full solution builds with 0 errors; the entire test suite is green &mdash;
-  Basket 91, Catalog 155, Payment 85, Ordering 70, Delivery 56, Reviews 53, CustomerSupport 46,
+  Basket 92, Catalog 155, Payment 85, Ordering 71, Delivery 56, Reviews 53, CustomerSupport 46,
   Pricing 47, Notification 42, Identity 40, Gateway 38, BuildingBlocks 46, Reporting 42, Inventory 7.
 
 ### Reliability
@@ -126,6 +126,19 @@ walkable end-to-end.
   (direct lookup, then a loaded-assembly scan) so resolution no longer depends on the assembly version or
   on which assembly hosts the publisher; legacy assembly-qualified rows still resolve, so no migration is
   needed. Proven with resolver tests (stable name, legacy name, unknown name) and a contract-name format test.
+- **Outbox multi-instance claim guard (BSK-01).** Both outbox stores fetched unpublished rows with a plain
+  `Where(ProcessedOnUtc == null).Take(batchSize)` and no row lock, so two publisher replicas draining
+  concurrently fetched and published the same messages (duplicate publishes; tolerated only because
+  consumers are idempotent). Locking during the fetch would not have helped &mdash; the publisher fetches,
+  publishes, and marks-published in separate operations, so a fetch-time lock is released before the
+  publish. Instead each drain now *claims* its batch: it selects candidate ids, then an atomic conditional
+  update stamps a per-drain `ClaimId`/`ClaimedOnUtc` only on rows still unclaimed (or whose lease lapsed),
+  and returns just the rows this call won &mdash; so two replicas always claim disjoint sets. A lapsed
+  lease (`OutboxMessage.ClaimLeaseTimeout`) re-claims messages stranded by a crashed replica, and a
+  transient publish failure releases the claim for prompt retry. Implemented with EF Core `ExecuteUpdate`
+  (Ordering/SQL Server) and Marten `Patch` (Basket/PostgreSQL) &mdash; no raw SQL. Proven with a concurrent
+  two-drainer Testcontainers test per store (SQL Server + PostgreSQL) asserting disjoint claims and that
+  every message is claimed exactly once.
 
 ### Fixed
 

@@ -10,12 +10,45 @@ namespace FreshCart.Ordering.Infrastructure.Persistence;
 public sealed class EntityFrameworkOutboxStore(OrderingDbContext dbContext, TimeProvider timeProvider) : IOutboxStore
 {
     public async Task<IReadOnlyList<OutboxMessage>> GetUnpublishedAsync(int batchSize, CancellationToken cancellationToken)
-        => await dbContext.OutboxMessages
-            .Where(message => message.ProcessedOnUtc == null)
+    {
+        var claimId = Guid.NewGuid();
+        var nowUtc = timeProvider.GetUtcNow();
+        var leaseExpiresBefore = nowUtc - OutboxMessage.ClaimLeaseTimeout;
+
+        var candidateIds = await dbContext.OutboxMessages
+            .Where(message => message.ProcessedOnUtc == null
+                && (message.ClaimId == null || message.ClaimedOnUtc < leaseExpiresBefore))
             .OrderBy(message => message.OccurredOnUtc)
             .Take(batchSize)
+            .Select(message => message.Id)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
+
+        if (candidateIds.Count == 0)
+        {
+            return [];
+        }
+
+        // The claim is what serialises competing publisher replicas: the conditional UPDATE only stamps
+        // rows that are still unclaimed (or whose lease lapsed), so of two drainers racing for the same
+        // candidates each row is won by exactly one. We then return only the rows this call actually won.
+        await dbContext.OutboxMessages
+            .Where(message => candidateIds.Contains(message.Id)
+                && message.ProcessedOnUtc == null
+                && (message.ClaimId == null || message.ClaimedOnUtc < leaseExpiresBefore))
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(message => message.ClaimId, claimId)
+                    .SetProperty(message => message.ClaimedOnUtc, nowUtc),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return await dbContext.OutboxMessages
+            .Where(message => message.ClaimId == claimId && message.ProcessedOnUtc == null)
+            .OrderBy(message => message.OccurredOnUtc)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+    }
 
     public Task MarkAsPublishedAsync(IEnumerable<OutboxMessage> messages, CancellationToken cancellationToken)
     {
@@ -36,7 +69,11 @@ public sealed class EntityFrameworkOutboxStore(OrderingDbContext dbContext, Time
         ArgumentNullException.ThrowIfNull(message);
         ArgumentNullException.ThrowIfNull(error);
 
-        message.MarkFailed(error, maxRetryAttempts, timeProvider.GetUtcNow());
+        var deadLettered = message.MarkFailed(error, maxRetryAttempts, timeProvider.GetUtcNow());
+        if (!deadLettered)
+        {
+            message.ReleaseClaim();
+        }
 
         return dbContext.SaveChangesAsync(cancellationToken);
     }
