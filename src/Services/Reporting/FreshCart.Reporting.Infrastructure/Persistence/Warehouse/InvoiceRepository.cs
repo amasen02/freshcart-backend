@@ -1,3 +1,4 @@
+using Dapper;
 using FreshCart.Reporting.Application.Common.Abstractions;
 using FreshCart.Reporting.Domain.Invoices;
 using Microsoft.EntityFrameworkCore;
@@ -5,11 +6,13 @@ using Microsoft.EntityFrameworkCore;
 namespace FreshCart.Reporting.Infrastructure.Persistence.Warehouse;
 
 /// <summary>
-/// EF-Core-backed invoice repository. Allocates gap-free invoice numbers under a transactional
-/// row lock: the (year, kind) row is read with <c>FOR UPDATE</c> semantics, incremented, and
-/// returned to the caller. The caller persists the full invoice in the same transaction.
+/// EF-Core-backed invoice repository. Invoice numbers are allocated with a single atomic upsert
+/// (<see cref="AllocateNextNumberAsync"/>) so that concurrent allocators can never be handed the same
+/// number; the rendered invoice is then persisted separately by the caller.
 /// </summary>
-public sealed class InvoiceRepository(WarehouseDbContext warehouseDbContext) : IInvoiceRepository
+public sealed class InvoiceRepository(
+    WarehouseDbContext warehouseDbContext,
+    IWarehouseConnectionFactory warehouseConnectionFactory) : IInvoiceRepository
 {
     public async Task<Invoice?> FindByNumberAsync(InvoiceNumber invoiceNumber, CancellationToken cancellationToken)
     {
@@ -38,23 +41,35 @@ public sealed class InvoiceRepository(WarehouseDbContext warehouseDbContext) : I
         int year,
         CancellationToken cancellationToken)
     {
-        // The row lock is implicit when the sequence row is updated; on MySQL InnoDB an UPDATE
-        // acquires a record lock, which is the simplest cross-connection serialisation primitive
-        // available without going to an external coordinator.
-        var sequenceRow = await warehouseDbContext.InvoiceNumberSequences
-            .FirstOrDefaultAsync(sequence => sequence.Year == year && sequence.Kind == kind, cancellationToken)
+        // Read-then-write in application code hands two concurrent allocators the same number. Instead the
+        // upsert increments the (year, kind) counter atomically under InnoDB's row lock and stashes the new
+        // value in this connection's session-scoped LAST_INSERT_ID, which the next statement reads back —
+        // so each allocator gets its own distinct, gap-free number.
+        const string incrementSequenceSql = """
+            INSERT INTO invoice_number_sequences (Year, Kind, LastSequence)
+            VALUES (@Year, @Kind, LAST_INSERT_ID(1))
+            ON DUPLICATE KEY UPDATE LastSequence = LAST_INSERT_ID(LastSequence + 1)
+            """;
+
+        const string readBackSequenceSql = "SELECT LAST_INSERT_ID()";
+
+        var connection = await warehouseConnectionFactory
+            .CreateOpenConnectionAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        if (sequenceRow is null)
+        await using (connection.ConfigureAwait(false))
         {
-            sequenceRow = new InvoiceNumberSequence { Year = year, Kind = kind, LastSequence = 0 };
-            warehouseDbContext.InvoiceNumberSequences.Add(sequenceRow);
+            await connection.ExecuteAsync(new CommandDefinition(
+                commandText: incrementSequenceSql,
+                parameters: new { Year = year, Kind = (int)kind },
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+            var nextSequence = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
+                commandText: readBackSequenceSql,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+            return InvoiceNumber.Allocate(kind, year, nextSequence);
         }
-
-        sequenceRow.LastSequence += 1;
-        await warehouseDbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-
-        return InvoiceNumber.Allocate(kind, year, sequenceRow.LastSequence);
     }
 
     public Task AddAsync(Invoice invoice, CancellationToken cancellationToken)

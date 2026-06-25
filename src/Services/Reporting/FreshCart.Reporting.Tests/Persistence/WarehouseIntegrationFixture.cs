@@ -1,5 +1,6 @@
 using Dapper;
 using FreshCart.Reporting.Infrastructure.Persistence.Warehouse;
+using Microsoft.EntityFrameworkCore;
 using MySqlConnector;
 using Testcontainers.MySql;
 
@@ -33,6 +34,13 @@ public sealed class WarehouseIntegrationFixture : IAsyncLifetime
 
         await CreateWarehouseTablesAsync();
     }
+
+    // Invoice-number allocation runs entirely through the Dapper connection factory, so the repository's
+    // DbContext dependency is never touched on that path. A provider-less context satisfies the constructor
+    // without dragging the Pomelo EF provider into the test assembly (whose transitive EF Core version does
+    // not match the one Pomelo binds against at runtime).
+    public static WarehouseDbContext CreateWarehouseDbContext()
+        => new(new DbContextOptionsBuilder<WarehouseDbContext>().Options);
 
     public async Task DisposeAsync() => await mySqlContainer.DisposeAsync();
 
@@ -74,6 +82,13 @@ public sealed class WarehouseIntegrationFixture : IAsyncLifetime
                 display_name   VARCHAR(128)  NOT NULL,
                 order_count    INT           NOT NULL,
                 lifetime_value DECIMAL(18,2) NOT NULL
+            );
+
+            CREATE TABLE invoice_number_sequences (
+                Year         INT    NOT NULL,
+                Kind         INT    NOT NULL,
+                LastSequence BIGINT NOT NULL,
+                PRIMARY KEY (Year, Kind)
             );
             """;
 
