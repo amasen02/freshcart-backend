@@ -207,6 +207,16 @@ callers) rather than asserted in prose:
   conditional update (EF Core `ExecuteUpdate` on SQL Server, Marten `Patch` on PostgreSQL) and a
   crash-recovering lease, so two publisher replicas always claim disjoint sets. *Proven by a concurrent
   two-drainer test per store.* (BSK-01)
+- **Delivery events never lost on a broker outage.** The delivery document and its `DeliveryScheduled` /
+  `DeliveryCompleted` event commit in one MongoDB transaction (a single-node replica set), then a
+  claim-by-update outbox publisher delivers the event; a failed business write stages no event and a failed
+  event write rolls the delivery back. *Proven by replica-set atomicity, claim-disjointness and
+  publish-lifecycle tests.* (DLV-002/003)
+- **No double charge from a payment dual write.** The event append and a projection marker commit in one
+  MongoDB transaction; a background projector replays each stream to SQL idempotently, and the capture
+  idempotency / one-payment-per-order invariant lives in the event store (partial unique index on the
+  initiating event's `OrderId`), not the asynchronously-projected read model. *Proven by replica-set
+  atomicity, source-of-truth-uniqueness and projector convergence tests.* (PAY-003)
 
 Every item traces to an audit finding; the fixes and their verification are recorded in
 [`CHANGELOG.md`](CHANGELOG.md), and the originating review is

@@ -59,9 +59,10 @@ walkable end-to-end.
   open session; an agent sees their active sessions; a customer cannot read another customer's transcript
   (403) while a participant or an administrator can; an unknown session &rarr; 404; and only back-office
   staff can browse the full session list (customer &rarr; 403). Test-only; no production change.
-- Verified: full solution builds with 0 errors; the entire test suite is green &mdash;
-  Basket 92, Catalog 155, Payment 85, Ordering 71, Delivery 56, Reviews 53, CustomerSupport 56,
-  Pricing 47, Notification 42, Identity 40, Gateway 38, BuildingBlocks 46, Reporting 42, Inventory 7.
+- Verified: full solution builds with 0 errors / 0 warnings; the entire test suite is green &mdash; 846
+  tests across 14 projects: Catalog 155, Basket 92, Payment 91, Ordering 71, Delivery 64, CustomerSupport
+  56, Reviews 53, Pricing 47, BuildingBlocks 46, Notification 42, Reporting 42, Identity 40, Gateway 38,
+  Inventory 9.
 
 ### Reliability
 
@@ -146,6 +147,32 @@ walkable end-to-end.
   (Ordering/SQL Server) and Marten `Patch` (Basket/PostgreSQL) &mdash; no raw SQL. Proven with a concurrent
   two-drainer Testcontainers test per store (SQL Server + PostgreSQL) asserting disjoint claims and that
   every message is claimed exactly once.
+- **Delivery transactional outbox (DLV-002/003).** Delivery published `DeliveryScheduled`
+  (`OrderConfirmedConsumer`) and `DeliveryCompleted` (`CompleteDeliveryService`) directly through
+  `IPublishEndpoint` immediately after writing the delivery document &mdash; a dual write that dropped the
+  event whenever the broker call failed after the document committed. The events now ride a transactional
+  outbox: `ScheduleDeliveryService` and `CompleteDeliveryService` stage the event through a new
+  `IDeliveryUnitOfWork` that writes the delivery document and the outbox message in one MongoDB
+  multi-document transaction, and the shared `OutboxPublisher` (now hosted in Delivery) drains the
+  `delivery-outbox` collection onto the bus. The MongoDB `IOutboxStore` mirrors the BSK-01 claim-by-update
+  guard so publisher replicas claim disjoint batches and a lapsed lease re-claims a crashed replica's
+  message. Proven against a real single-node replica set: the delivery and its event commit atomically, a
+  failed delivery write stages no event and a failed event write rolls the delivery back, the staged
+  payload resolves and deserialises exactly as the publisher will, concurrent drainers claim disjoint sets,
+  a poison message dead-letters at the retry ceiling, and a lapsed claim is re-taken.
+- **Exactly-once payment read-model projection (PAY-003).** `CapturePaymentCommandHandler` appended events
+  to the Mongo event store and then upserted the SQL read model as two independent writes; on a read-model
+  failure after the event committed they diverged, and because the capture idempotency check read the read
+  model, a lost projection re-charged the customer on retry. The append is now atomic and the projection
+  asynchronous: the event store writes the events and a projection marker in one MongoDB transaction, and a
+  background `PaymentReadModelProjector` replays each stream to its latest state and upserts SQL
+  idempotently (a failed projection is released, never dead-lettered, so the read model always converges).
+  The capture idempotency check and the one-payment-per-order invariant move to the event store &mdash; the
+  source of truth &mdash; via `FindStreamIdByOrderIdAsync` and a partial unique index over the initiating
+  event's `OrderId`, so a not-yet-projected payment is never captured twice. Proven against a replica set:
+  the marker commits with the events (a conflicting append leaks none), a second payment for one order is
+  rejected, and the projector projects the latest state once, stops handing out processed markers, and
+  retries a released failure to convergence.
 
 ### Fixed
 
@@ -166,6 +193,16 @@ walkable end-to-end.
   cross-column CHECK. The Playwright `customer-journey` spec now runs green end-to-end against
   `dotnet run` AppHost + `ng serve`, and a real order reaches `Confirmed`
   (Submitted &rarr; StockReserved &rarr; Confirmed) through the MassTransit saga.
+- **AppHost MongoDB runs as a single-node replica set.** The Delivery and Payment transactions above need
+  a replica set, which a standalone mongod rejects and Aspire's `AddMongoDB` does not offer. The shared
+  `mongodb` container now runs as one via a wrapper entrypoint that preserves Aspire's secure-by-default
+  auth: it generates the keyfile internal authentication requires, hands off to the stock docker-entrypoint
+  (which still creates the admin user) with `--replSet` + `--keyFile`, and a backgrounded task runs
+  `rs.initiate` as the admin user once mongod answers &mdash; idempotent across the persistent-volume
+  restart. Each Mongo-backed service's connection string gains `directConnection=true` (via a
+  `ReferenceMongoDatabase` helper) so the driver uses the seed Aspire publishes instead of resolving the
+  container-internal member host. Verified against the `mongo:7` image (fresh init, persistent-volume
+  restart, committed multi-document transaction) and via the published Aspire manifest.
 
 ### Planned &mdash; future phases
 
