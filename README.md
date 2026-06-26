@@ -5,9 +5,13 @@
 > interview tour, all in one self-contained document.
 
 [![.NET](https://img.shields.io/badge/.NET-10-blueviolet)](https://dotnet.microsoft.com/)
-[![Frontend: Angular 20](https://img.shields.io/badge/frontend-Angular%2020-red)](https://github.com/amasen02/freshcart-web)
 [![Aspire](https://img.shields.io/badge/Aspire-13-blue)](https://learn.microsoft.com/en-us/dotnet/aspire/)
+[![Microservices](https://img.shields.io/badge/microservices-12-blueviolet)](#domain--twelve-bounded-contexts)
+[![RabbitMQ](https://img.shields.io/badge/RabbitMQ-async%20messaging-ff6600?logo=rabbitmq&logoColor=white)](https://www.rabbitmq.com/)
+[![MassTransit](https://img.shields.io/badge/MassTransit-event%20bus-1f6feb)](https://masstransit.io/)
+[![gRPC](https://img.shields.io/badge/gRPC-internal%20sync-244c5a?logo=grpc&logoColor=white)](https://grpc.io/)
 [![Azure](https://img.shields.io/badge/Azure-AKS-0078d4)](https://azure.microsoft.com/en-us/products/kubernetes-service)
+[![Frontend: Angular 20](https://img.shields.io/badge/frontend-Angular%2020-red)](https://github.com/amasen02/freshcart-web)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-blue)](CODE_OF_CONDUCT.md)
