@@ -17,6 +17,14 @@ public sealed class WarehouseProjectionWriter(
 {
     private static readonly int DuplicateEntryErrorNumber = (int)MySqlErrorCode.DuplicateKeyEntry;
 
+    private const string NewCustomerSegment = "new";
+    private const string ReturningCustomerSegment = "returning";
+
+    // ProductCreated carries no stock thresholds, so the snapshot seeds sensible defaults; the dashboard's
+    // low-stock and overstock flags then track movement once an inventory feed supplies real thresholds.
+    private const int DefaultReorderThreshold = 10;
+    private const int DefaultOverstockThreshold = 1000;
+
     public Task<bool> ApplyOrderConfirmedAsync(
         OrderConfirmedIntegrationEvent integrationEvent,
         CancellationToken cancellationToken)
@@ -31,8 +39,55 @@ public sealed class WarehouseProjectionWriter(
             {
                 await InsertSalesFactAsync(connection, transaction, integrationEvent, netRevenue, ct).ConfigureAwait(false);
                 await InsertSalesLineFactsAsync(connection, transaction, integrationEvent, ct).ConfigureAwait(false);
+
+                // The segment is decided from the customer's prior lifetime-value row read inside this same
+                // transaction, before the upsert advances it: no prior row means this is their first order.
+                var priorLifetimeValue = await ReadCustomerLifetimeValueAsync(connection, transaction, integrationEvent.CustomerId, ct).ConfigureAwait(false);
                 await UpsertCustomerLifetimeValueAsync(connection, transaction, integrationEvent.CustomerId, netRevenue, ct).ConfigureAwait(false);
+
+                var segment = priorLifetimeValue is null ? NewCustomerSegment : ReturningCustomerSegment;
+                var lifetimeValue = (priorLifetimeValue ?? 0m) + netRevenue;
+                await UpsertCustomerSegmentAsync(
+                        connection, transaction, integrationEvent.CustomerId, segment,
+                        integrationEvent.OccurredOnUtc.UtcDateTime, lifetimeValue, ct)
+                    .ConfigureAwait(false);
             },
+            cancellationToken);
+    }
+
+    public Task<bool> ApplyProductCreatedAsync(
+        ProductCreatedIntegrationEvent integrationEvent,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(integrationEvent);
+
+        return ProjectExactlyOnceAsync(
+            integrationEvent.EventId,
+            (connection, transaction, ct) => UpsertInventorySnapshotAsync(connection, transaction, integrationEvent, ct),
+            cancellationToken);
+    }
+
+    public Task<bool> ApplyDeliveryScheduledAsync(
+        DeliveryScheduledIntegrationEvent integrationEvent,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(integrationEvent);
+
+        return ProjectExactlyOnceAsync(
+            integrationEvent.EventId,
+            (connection, transaction, ct) => InsertScheduledDeliveryFactAsync(connection, transaction, integrationEvent, ct),
+            cancellationToken);
+    }
+
+    public Task<bool> ApplyDeliveryCompletedAsync(
+        DeliveryCompletedIntegrationEvent integrationEvent,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(integrationEvent);
+
+        return ProjectExactlyOnceAsync(
+            integrationEvent.EventId,
+            (connection, transaction, ct) => CompleteDeliveryFactAsync(connection, transaction, integrationEvent, ct),
             cancellationToken);
     }
 
@@ -229,5 +284,143 @@ public sealed class WarehouseProjectionWriter(
             parameters: new { CustomerId = customerId, NetRevenue = netRevenue },
             transaction: transaction,
             cancellationToken: cancellationToken));
+    }
+
+    private static Task<decimal?> ReadCustomerLifetimeValueAsync(
+        DbConnection connection,
+        DbTransaction transaction,
+        Guid customerId,
+        CancellationToken cancellationToken)
+    {
+        const string readLifetimeValueSql =
+            "SELECT lifetime_value FROM customer_lifetime_value WHERE customer_id = @CustomerId";
+
+        return connection.QuerySingleOrDefaultAsync<decimal?>(new CommandDefinition(
+            commandText: readLifetimeValueSql,
+            parameters: new { CustomerId = customerId },
+            transaction: transaction,
+            cancellationToken: cancellationToken));
+    }
+
+    private static Task<int> UpsertCustomerSegmentAsync(
+        DbConnection connection,
+        DbTransaction transaction,
+        Guid customerId,
+        string segment,
+        DateTime segmentOnUtc,
+        decimal lifetimeValue,
+        CancellationToken cancellationToken)
+    {
+        const string upsertSegmentSql = """
+            INSERT INTO customer_segment_snapshot (customer_id, segment, segment_on_utc, lifetime_value)
+            VALUES (@CustomerId, @Segment, @SegmentOnUtc, @LifetimeValue)
+            ON DUPLICATE KEY UPDATE
+                segment        = VALUES(segment),
+                segment_on_utc = VALUES(segment_on_utc),
+                lifetime_value = VALUES(lifetime_value)
+            """;
+
+        return connection.ExecuteAsync(new CommandDefinition(
+            commandText: upsertSegmentSql,
+            parameters: new { CustomerId = customerId, Segment = segment, SegmentOnUtc = segmentOnUtc, LifetimeValue = lifetimeValue },
+            transaction: transaction,
+            cancellationToken: cancellationToken));
+    }
+
+    private static Task<int> UpsertInventorySnapshotAsync(
+        DbConnection connection,
+        DbTransaction transaction,
+        ProductCreatedIntegrationEvent integrationEvent,
+        CancellationToken cancellationToken)
+    {
+        const string upsertInventorySnapshotSql = """
+            INSERT INTO inventory_snapshot
+                (product_sku, product_name, on_hand, reorder_threshold, overstock_threshold, unit_cost, updated_on_utc)
+            VALUES
+                (@ProductSku, @ProductName, @OnHand, @ReorderThreshold, @OverstockThreshold, @UnitCost, UTC_TIMESTAMP(6))
+            ON DUPLICATE KEY UPDATE
+                product_name   = VALUES(product_name),
+                on_hand        = VALUES(on_hand),
+                unit_cost      = VALUES(unit_cost),
+                updated_on_utc = VALUES(updated_on_utc)
+            """;
+
+        return connection.ExecuteAsync(new CommandDefinition(
+            commandText: upsertInventorySnapshotSql,
+            parameters: new
+            {
+                integrationEvent.ProductSku,
+                integrationEvent.ProductName,
+                OnHand = integrationEvent.InitialStockQuantity,
+                ReorderThreshold = DefaultReorderThreshold,
+                OverstockThreshold = DefaultOverstockThreshold,
+                UnitCost = integrationEvent.BasePrice,
+            },
+            transaction: transaction,
+            cancellationToken: cancellationToken));
+    }
+
+    private static Task<int> InsertScheduledDeliveryFactAsync(
+        DbConnection connection,
+        DbTransaction transaction,
+        DeliveryScheduledIntegrationEvent integrationEvent,
+        CancellationToken cancellationToken)
+    {
+        const string insertScheduledDeliverySql = """
+            INSERT INTO delivery_facts
+                (delivery_id, order_id, customer_id, scheduled_start_utc, scheduled_end_utc,
+                 completed_on_utc, outcome, duration_minutes)
+            VALUES
+                (@DeliveryId, @OrderId, @CustomerId, @ScheduledStartUtc, @ScheduledEndUtc, NULL, NULL, NULL)
+            ON DUPLICATE KEY UPDATE
+                order_id            = VALUES(order_id),
+                customer_id         = VALUES(customer_id),
+                scheduled_start_utc = VALUES(scheduled_start_utc),
+                scheduled_end_utc   = VALUES(scheduled_end_utc)
+            """;
+
+        return connection.ExecuteAsync(new CommandDefinition(
+            commandText: insertScheduledDeliverySql,
+            parameters: new
+            {
+                integrationEvent.DeliveryId,
+                integrationEvent.OrderId,
+                integrationEvent.CustomerId,
+                ScheduledStartUtc = integrationEvent.SlotStartUtc.UtcDateTime,
+                ScheduledEndUtc = integrationEvent.SlotEndUtc.UtcDateTime,
+            },
+            transaction: transaction,
+            cancellationToken: cancellationToken));
+    }
+
+    private static async Task CompleteDeliveryFactAsync(
+        DbConnection connection,
+        DbTransaction transaction,
+        DeliveryCompletedIntegrationEvent integrationEvent,
+        CancellationToken cancellationToken)
+    {
+        // The outcome is derived in SQL against the row's scheduled slot: on time if it completed by the
+        // slot end, otherwise late. Duration is whole minutes from the slot start to completion.
+        const string completeDeliverySql = """
+            UPDATE delivery_facts
+            SET completed_on_utc = @CompletedOnUtc,
+                outcome          = CASE WHEN @CompletedOnUtc <= scheduled_end_utc THEN 'on_time' ELSE 'late' END,
+                duration_minutes = TIMESTAMPDIFF(MINUTE, scheduled_start_utc, @CompletedOnUtc)
+            WHERE delivery_id = @DeliveryId
+            """;
+
+        var rowsAffected = await connection.ExecuteAsync(new CommandDefinition(
+            commandText: completeDeliverySql,
+            parameters: new { integrationEvent.DeliveryId, CompletedOnUtc = integrationEvent.DeliveredOnUtc.UtcDateTime },
+            transaction: transaction,
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+        if (rowsAffected == 0)
+        {
+            // The DeliveryScheduled projection has not arrived yet (events can be reordered). Throwing rolls
+            // back this transaction — including the inbox latch — so MassTransit redelivers until it has.
+            throw new InvalidOperationException(
+                $"Delivery {integrationEvent.DeliveryId} has no scheduled fact to complete yet; will retry on redelivery.");
+        }
     }
 }

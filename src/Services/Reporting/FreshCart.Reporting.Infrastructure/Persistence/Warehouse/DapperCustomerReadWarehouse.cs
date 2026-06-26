@@ -44,10 +44,10 @@ public sealed class DapperCustomerReadWarehouse(IWarehouseConnectionFactory ware
     {
         const string acquisitionSql = """
             SELECT
-                SUM(CASE WHEN segment = 'new'       THEN 1 ELSE 0 END) AS NewCustomers,
-                SUM(CASE WHEN segment = 'returning' THEN 1 ELSE 0 END) AS ReturningCustomers,
-                SUM(CASE WHEN segment = 'churned'   THEN 1 ELSE 0 END) AS ChurnedCustomers,
-                COALESCE(AVG(lifetime_value), 0)                      AS AverageLifetimeValue
+                COUNT(CASE WHEN segment = 'new'       THEN 1 END) AS NewCustomers,
+                COUNT(CASE WHEN segment = 'returning' THEN 1 END) AS ReturningCustomers,
+                COUNT(CASE WHEN segment = 'churned'   THEN 1 END) AS ChurnedCustomers,
+                COALESCE(AVG(lifetime_value), 0)                  AS AverageLifetimeValue
             FROM customer_segment_snapshot
             WHERE segment_on_utc >= @FromUtc AND segment_on_utc < @ToUtc
             """;

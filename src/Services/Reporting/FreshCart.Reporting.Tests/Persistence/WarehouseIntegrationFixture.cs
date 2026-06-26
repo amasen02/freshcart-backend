@@ -46,45 +46,17 @@ public sealed class WarehouseIntegrationFixture : IAsyncLifetime
 
     private async Task CreateWarehouseTablesAsync()
     {
-        const string createTablesSql = """
-            CREATE TABLE projection_inbox (
+        // EF Core owns these two tables in production (WarehouseDbContext.EnsureCreatedAsync), but the
+        // Pomelo provider cannot run inside the test assembly, so they are created here with the same shape.
+        // The analytical fact and snapshot tables come from the production ReportingWarehouseSchema, so the
+        // tests exercise the exact DDL the live initializer applies.
+        const string createEfOwnedTablesSql = """
+            CREATE TABLE IF NOT EXISTS projection_inbox (
                 EventId        CHAR(36)     NOT NULL PRIMARY KEY,
                 ProcessedOnUtc DATETIME(6)  NOT NULL
             );
 
-            CREATE TABLE sales_facts (
-                order_id        CHAR(36)       NOT NULL PRIMARY KEY,
-                customer_id     CHAR(36)       NOT NULL,
-                occurred_on_utc DATETIME(6)    NOT NULL,
-                gross_revenue   DECIMAL(18,2)  NOT NULL,
-                discount_total  DECIMAL(18,2)  NOT NULL,
-                refund_total    DECIMAL(18,2)  NOT NULL,
-                tax_total       DECIMAL(18,2)  NOT NULL,
-                shipping_total  DECIMAL(18,2)  NOT NULL,
-                net_revenue     DECIMAL(18,2)  NOT NULL,
-                payment_method  VARCHAR(64)    NOT NULL
-            );
-
-            CREATE TABLE sales_line_facts (
-                order_id         CHAR(36)      NOT NULL,
-                product_sku      VARCHAR(64)   NOT NULL,
-                product_name     VARCHAR(256)  NOT NULL,
-                primary_category VARCHAR(128)  NOT NULL,
-                quantity         INT           NOT NULL,
-                unit_price       DECIMAL(18,2) NOT NULL,
-                net_revenue      DECIMAL(18,2) NOT NULL,
-                occurred_on_utc  DATETIME(6)   NOT NULL,
-                PRIMARY KEY (order_id, product_sku)
-            );
-
-            CREATE TABLE customer_lifetime_value (
-                customer_id    CHAR(36)      NOT NULL PRIMARY KEY,
-                display_name   VARCHAR(128)  NOT NULL,
-                order_count    INT           NOT NULL,
-                lifetime_value DECIMAL(18,2) NOT NULL
-            );
-
-            CREATE TABLE invoice_number_sequences (
+            CREATE TABLE IF NOT EXISTS invoice_number_sequences (
                 Year         INT    NOT NULL,
                 Kind         INT    NOT NULL,
                 LastSequence BIGINT NOT NULL,
@@ -96,7 +68,8 @@ public sealed class WarehouseIntegrationFixture : IAsyncLifetime
         await using (connection.ConfigureAwait(false))
         {
             await connection.OpenAsync().ConfigureAwait(false);
-            await connection.ExecuteAsync(createTablesSql).ConfigureAwait(false);
+            await connection.ExecuteAsync(createEfOwnedTablesSql).ConfigureAwait(false);
+            await ReportingWarehouseSchema.EnsureCreatedAsync(connection, CancellationToken.None).ConfigureAwait(false);
         }
     }
 }

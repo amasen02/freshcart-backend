@@ -14,9 +14,9 @@ public sealed class DapperDeliveryReadWarehouse(IWarehouseConnectionFactory ware
         const string performanceSql = """
             SELECT
                 COUNT(*)                                                                                  AS TotalDeliveries,
-                SUM(CASE WHEN outcome = 'on_time' THEN 1 ELSE 0 END)                                      AS OnTimeCount,
-                SUM(CASE WHEN outcome = 'late'    THEN 1 ELSE 0 END)                                      AS LateCount,
-                SUM(CASE WHEN outcome = 'failed'  THEN 1 ELSE 0 END)                                      AS FailedCount,
+                COUNT(CASE WHEN outcome = 'on_time' THEN 1 END)                                           AS OnTimeCount,
+                COUNT(CASE WHEN outcome = 'late'    THEN 1 END)                                           AS LateCount,
+                COUNT(CASE WHEN outcome = 'failed'  THEN 1 END)                                           AS FailedCount,
                 COALESCE(AVG(duration_minutes), 0)                                                        AS AverageDurationMinutes,
                 COALESCE(SUM(CASE WHEN outcome = 'on_time' THEN 1.0 ELSE 0.0 END) / NULLIF(COUNT(*), 0), 0) * 100 AS OnTimePercentage
             FROM delivery_facts

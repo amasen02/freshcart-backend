@@ -60,7 +60,10 @@ var mysql = distributedApplicationBuilder
     .WithDataVolume()
     .WithLifetime(ContainerLifetime.Persistent);
 
-var reportingWarehouse = mysql.AddDatabase("reportingdb");
+// Aspire's AddDatabase registers the connection string but does not create the MySQL database; the
+// Reporting warehouse initializer connects straight to reportingdb, so it must exist first.
+var reportingWarehouse = mysql.AddDatabase("reportingdb")
+    .WithCreationScript("CREATE DATABASE IF NOT EXISTS `reportingdb`;");
 
 // --- Document store ---------------------------------------------------------
 

@@ -13,4 +13,10 @@ public interface IProjectionWriter
     Task<bool> ApplyOrderConfirmedAsync(OrderConfirmedIntegrationEvent integrationEvent, CancellationToken cancellationToken);
 
     Task<bool> ApplyOrderRefundedAsync(OrderRefundedIntegrationEvent integrationEvent, CancellationToken cancellationToken);
+
+    Task<bool> ApplyProductCreatedAsync(ProductCreatedIntegrationEvent integrationEvent, CancellationToken cancellationToken);
+
+    Task<bool> ApplyDeliveryScheduledAsync(DeliveryScheduledIntegrationEvent integrationEvent, CancellationToken cancellationToken);
+
+    Task<bool> ApplyDeliveryCompletedAsync(DeliveryCompletedIntegrationEvent integrationEvent, CancellationToken cancellationToken);
 }

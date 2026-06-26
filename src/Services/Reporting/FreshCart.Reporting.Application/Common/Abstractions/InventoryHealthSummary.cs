@@ -4,8 +4,8 @@ namespace FreshCart.Reporting.Application.Common.Abstractions;
 /// Stock-level headline numbers across the whole catalog.
 /// </summary>
 public sealed record InventoryHealthSummary(
-    int TotalSkus,
-    int OutOfStockCount,
-    int LowStockCount,
-    int OverstockCount,
+    long TotalSkus,
+    long OutOfStockCount,
+    long LowStockCount,
+    long OverstockCount,
     decimal InventoryValueAtCost);

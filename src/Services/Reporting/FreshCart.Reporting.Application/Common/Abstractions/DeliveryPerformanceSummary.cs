@@ -4,9 +4,9 @@ namespace FreshCart.Reporting.Application.Common.Abstractions;
 /// Delivery punctuality headline numbers for a reporting period.
 /// </summary>
 public sealed record DeliveryPerformanceSummary(
-    int TotalDeliveries,
-    int OnTimeCount,
-    int LateCount,
-    int FailedCount,
+    long TotalDeliveries,
+    long OnTimeCount,
+    long LateCount,
+    long FailedCount,
     decimal AverageDurationMinutes,
     decimal OnTimePercentage);

@@ -60,6 +60,10 @@ public static class DependencyInjection
         services.AddScoped<ICustomerReadWarehouse, DapperCustomerReadWarehouse>();
         services.AddScoped<IDeliveryReadWarehouse, DapperDeliveryReadWarehouse>();
         services.AddScoped<IProjectionWriter, WarehouseProjectionWriter>();
+
+        // Provisions the warehouse schema on startup so the projection consumers and dashboards have their
+        // tables before the first event or query (previously the warehouse had no initializer at all).
+        services.AddHostedService<ReportingWarehouseInitializer>();
     }
 
     private static void AddBlobStorage(IServiceCollection services, IConfiguration configuration)
