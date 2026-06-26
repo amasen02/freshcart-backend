@@ -528,10 +528,7 @@ services:
     restart: unless-stopped
 
   freshcart-spa:
-    build:
-      context: ../../clients/freshcart-customer
-      dockerfile: Dockerfile
-    image: freshcart/spa:local
+    image: ghcr.io/amasen02/freshcart-web:latest
     container_name: freshcart-spa
     depends_on:
       gateway:

@@ -8,7 +8,6 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'clients/freshcart-customer/**'
       - 'src/Services/**'
       - 'src/ApiGateways/**'
       - 'tests/e2e/**'

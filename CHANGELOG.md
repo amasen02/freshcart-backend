@@ -12,6 +12,16 @@ walkable end-to-end.
 
 ## [Unreleased]
 
+### Changed
+
+- **Split the frontend into its own repository.** The Angular 20 customer storefront, previously at
+  `clients/freshcart-customer/`, now lives in the companion repo
+  [`amasen02/freshcart-web`](https://github.com/amasen02/freshcart-web) with its commit history
+  preserved. This repository keeps the backend services, the YARP gateway, infrastructure and
+  deployment. The `spa-ci.yml` workflow moved with the SPA, the Docker Compose `freshcart-spa`
+  service now pulls the published `ghcr.io/amasen02/freshcart-web` image instead of building from a
+  local path, and the dependabot npm entry for the SPA was removed.
+
 ### Security
 
 - Eliminated the critical `Marten` full-text-search SQL-injection advisory (GHSA-vmw2-qwm8-x84c) by

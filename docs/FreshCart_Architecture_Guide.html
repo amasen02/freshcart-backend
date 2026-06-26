@@ -255,11 +255,9 @@ docker compose -f deploy/docker/docker-compose.yaml up -d
 # 2. Whole stack via .NET Aspire — boots every microservice + seeds the demo accounts
 dotnet run --project src/AspireAppHost/FreshCart.AppHost
 
-# 3. Customer SPA
-cd clients/freshcart-customer &amp;&amp; npm install &amp;&amp; npm start
-
-# 4. Admin SPA
-cd clients/freshcart-admin    &amp;&amp; npm install &amp;&amp; npm start</code></pre>
+# 3. Customer SPA (separate repo: github.com/amasen02/freshcart-web)
+git clone https://github.com/amasen02/freshcart-web.git
+cd freshcart-web &amp;&amp; npm install &amp;&amp; npm start</code></pre>
 
     <h3 style="margin-top:1.2rem;">Open in the browser</h3>
     <div class="card-grid">
@@ -1375,8 +1373,9 @@ dotnet run --project src/AspireAppHost/FreshCart.AppHost
 # 3. Or one service at a time
 dotnet run --project src/Services/Identity/FreshCart.Identity.Api
 
-# 4. Customer SPA
-cd clients/freshcart-customer
+# 4. Customer SPA (separate repo: github.com/amasen02/freshcart-web)
+git clone https://github.com/amasen02/freshcart-web.git
+cd freshcart-web
 npm install
 npm start                     # http://localhost:4200
 

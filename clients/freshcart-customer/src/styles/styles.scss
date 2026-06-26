@@ -1,9 +1,0 @@
-@use 'variables' as brand;
-@use 'bootstrap/scss/bootstrap' with (
-  $primary: brand.$primary,
-  $secondary: brand.$secondary,
-  $border-radius: brand.$border-radius,
-  $font-family-sans-serif: brand.$font-family-sans-serif
-);
-@use 'bootstrap-icons/font/bootstrap-icons';
-@use 'overrides';

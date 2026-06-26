@@ -32,23 +32,6 @@ updates:
           - 'MassTransit*'
 
   - package-ecosystem: npm
-    directory: '/clients/freshcart-customer'
-    schedule: { interval: weekly, day: monday, timezone: 'Asia/Colombo' }
-    open-pull-requests-limit: 10
-    labels: ['deps', 'angular']
-    commit-message: { prefix: 'chore(deps-customer)', include: 'scope' }
-    groups:
-      angular:
-        patterns: ['@angular/*']
-
-  - package-ecosystem: npm
-    directory: '/clients/freshcart-admin'
-    schedule: { interval: weekly, day: monday, timezone: 'Asia/Colombo' }
-    open-pull-requests-limit: 10
-    labels: ['deps', 'angular']
-    commit-message: { prefix: 'chore(deps-admin)', include: 'scope' }
-
-  - package-ecosystem: npm
     directory: '/tests/e2e'
     schedule: { interval: weekly, day: monday, timezone: 'Asia/Colombo' }
     open-pull-requests-limit: 5

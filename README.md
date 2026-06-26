@@ -10,10 +10,10 @@
 [![Azure](https://img.shields.io/badge/Azure-AKS-0078d4)](https://azure.microsoft.com/en-us/products/kubernetes-service)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
-A single, walkable portfolio repository. Twelve bounded contexts, each in a deliberately
-different architectural style, behind a YARP gateway, with an Angular 20 signal-based
-storefront, hosted on Azure Kubernetes Service through Azure DevOps or GitHub Actions
-multi-stage pipelines.
+The backend platform for FreshCart: twelve bounded contexts, each in a deliberately different
+architectural style, behind a YARP gateway, hosted on Azure Kubernetes Service through Azure
+DevOps or GitHub Actions multi-stage pipelines. The Angular 20 signal-based storefront lives in
+a companion repository &mdash; **[amasen02/freshcart-web](https://github.com/amasen02/freshcart-web)**.
 
 ---
 
@@ -37,8 +37,9 @@ docker compose -f deploy/docker/docker-compose.yaml up -d
 # 2. Whole .NET stack via Aspire — boots every microservice + the gateway + seeds demo accounts
 dotnet run --project src/AspireAppHost/FreshCart.AppHost
 
-# 3. Customer storefront — ng serve proxies /api and /hubs to the gateway on 7100
-cd clients/freshcart-customer && npm install && npm start
+# 3. Customer storefront (separate repo) — ng serve proxies /api and /hubs to the gateway on 7100
+git clone https://github.com/amasen02/freshcart-web.git
+cd freshcart-web && npm install && npm start
 ```
 
 ### Open in the browser
@@ -261,8 +262,7 @@ FreshCart/
 │   ├── ApiGateways/            ← YARP gateway + gateway tests
 │   ├── ModularMonolith/        ← AdminBackoffice (planned)
 │   └── AspireAppHost/          ← local orchestration
-├── clients/
-│   └── freshcart-customer/     ← Angular 20 storefront
+│   (frontend storefront lives in a separate repo → github.com/amasen02/freshcart-web)
 ├── deploy/
 │   ├── docker/                 ← docker-compose stack
 │   ├── helm/                   ← Helm charts
