@@ -59,9 +59,15 @@ walkable end-to-end.
   open session; an agent sees their active sessions; a customer cannot read another customer's transcript
   (403) while a participant or an administrator can; an unknown session &rarr; 404; and only back-office
   staff can browse the full session list (customer &rarr; 403). Test-only; no production change.
-- Verified: full solution builds with 0 errors / 0 warnings; the entire test suite is green &mdash; 846
-  tests across 14 projects: Catalog 155, Basket 92, Payment 91, Ordering 71, Delivery 64, CustomerSupport
-  56, Reviews 53, Pricing 47, BuildingBlocks 46, Notification 42, Reporting 42, Identity 40, Gateway 38,
+- **Pricing host integration tests (PR-01).** Pricing had only unit tests; the exposed gRPC calculator
+  (the hot checkout path) and the admin REST surface had no integration coverage. A
+  `WebApplicationFactory`-based harness now boots the host with an isolated in-memory SQLite store and
+  exercises the gRPC `PriceBasket`/`ValidateCoupon` endpoints over a real channel (calculated totals, a
+  seeded percentage coupon, an empty-basket `InvalidArgument`, valid/invalid coupon validation) plus the
+  REST coupon endpoint's anonymous-caller 401. The proto now also generates the client stub.
+- Verified: full solution builds with 0 errors / 0 warnings; the entire test suite is green &mdash; 865
+  tests across 14 projects: Catalog 156, Basket 92, Payment 91, Ordering 71, Delivery 64, CustomerSupport
+  56, Reporting 54, Reviews 53, Pricing 53, BuildingBlocks 46, Notification 42, Identity 40, Gateway 38,
   Inventory 9.
 
 ### Reliability
@@ -173,6 +179,25 @@ walkable end-to-end.
   the marker commits with the events (a conflicting append leaks none), a second payment for one order is
   rejected, and the projector projects the latest state once, stops handing out processed markers, and
   retries a released failure to convergence.
+- **Product create-race maps to 409, not 500 (CAT-001).** `CreateProductCommandHandler` checked the sku
+  existence and then wrote the product as two operations, so concurrent creates for the same sku could both
+  pass the check. The unique index on `Product.Sku` keeps integrity (no duplicate skus persist), but the
+  racing loser's insert surfaced the unique violation as a raw 500. The handler now catches the violation
+  (SQLSTATE 23505, walking Marten's wrapped exception) and maps it to the same `ConflictException` the
+  pre-check throws. Proven with a real PostgreSQL/Marten test: 15 concurrent creates yield exactly one
+  product and 14 conflicts, never a raw database error.
+- **The Reporting warehouse is now functional (REP-SCHEMA).** It had no schema provisioning whatsoever
+  (empty migrations, no startup initializer, no creation script), so the projection consumers would have
+  thrown on the first live event, and three dashboard tables (`inventory_snapshot`,
+  `customer_segment_snapshot`, `delivery_facts`) had no writer at all. A `ReportingWarehouseInitializer`
+  now provisions the schema on startup (EF Core `EnsureCreated` for the invoice/inbox tables it owns, then
+  the idempotent Dapper `ReportingWarehouseSchema` for the analytical tables), the AppHost creates the
+  MySQL database, and the projection writer feeds all three previously-unwritten tables: `ProductCreated`
+  seeds inventory, `DeliveryScheduled`/`DeliveryCompleted` record the slot and derive the on-time/late
+  outcome and duration, and the `OrderConfirmed` projection segments the customer as new or returning — all
+  inside the existing exactly-once inbox transaction. A latent dashboard-read bug the missing data had
+  hidden (MySQL `COUNT`/`SUM` aggregates materialising into `int` record constructors, which Dapper cannot
+  bind) is fixed alongside. Proven against a real MySQL warehouse.
 
 ### Fixed
 

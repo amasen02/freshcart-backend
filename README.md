@@ -217,6 +217,10 @@ callers) rather than asserted in prose:
   idempotency / one-payment-per-order invariant lives in the event store (partial unique index on the
   initiating event's `OrderId`), not the asynchronously-projected read model. *Proven by replica-set
   atomicity, source-of-truth-uniqueness and projector convergence tests.* (PAY-003)
+- **Product creation never duplicates a SKU or 500s on a race.** The check-then-write is backed by a unique
+  index on `Sku`; the writer that loses a concurrent race has its violation mapped to a 409 instead of a
+  raw database error. *Proven by a 15-way concurrent PostgreSQL/Marten test yielding one product and the
+  rest conflicts.* (CAT-001)
 
 Every item traces to an audit finding; the fixes and their verification are recorded in
 [`CHANGELOG.md`](CHANGELOG.md), and the originating review is
