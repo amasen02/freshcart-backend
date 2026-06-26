@@ -248,10 +248,11 @@ Every item traces to an audit finding; the fixes and their verification are reco
   Postgres Flexible Server, MySQL Flexible Server, Cosmos DB, Cache for Redis, Service Bus,
   Key Vault, App Configuration, Log Analytics, App Insights, Front Door + WAF, Storage,
   VNet + private endpoints.
-- **CI/CD.** Two equivalent paths ship in the repo:
-  - [`azure-pipelines/`](azure-pipelines/) &mdash; multi-stage YAML, AZ-204-grade.
-  - [`.github/workflows/`](.github/workflows/) &mdash; reusable workflows, OIDC federated
-    identity (no client secrets), CodeQL, Dependabot, Playwright e2e on PR.
+- **CI/CD.** [`.github/workflows/`](.github/workflows/) runs per-service build + test on every
+  push to `master` (green badges below), plus CodeQL security analysis, Dependabot, and
+  Playwright E2E. The full multi-stage build &rarr; scan &rarr; sign &rarr; blue/green AKS deploy
+  pipeline (OIDC federated identity, no long-lived secrets) ships in
+  [`azure-pipelines/`](azure-pipelines/) (Azure DevOps).
 - **Helm.** One chart per service in [`deploy/helm/`](deploy/helm/) with
   `values-dev.yaml`, `values-staging.yaml`, `values-prod.yaml`. PodSecurity restricted,
   non-root, read-only rootfs, NetworkPolicy default-deny.
@@ -303,8 +304,31 @@ freshcart-backend/
   ships.
 - **Contract / load.** Pact (provider verification) and k6 are planned phases
   (see [`CHANGELOG.md`](CHANGELOG.md)).
-- **Static.** SonarCloud + Trivy + CodeQL + `dotnet list package --vulnerable` &mdash; all
-  wired into both CI/CD paths.
+- **Static.** CodeQL (security-extended) on every push to `master`, plus a
+  `dotnet list package --vulnerable` scan in each service CI. SonarCloud and Trivy image
+  scanning run in the Azure DevOps pipeline ([`azure-pipelines/`](azure-pipelines/)).
+
+---
+
+## Continuous integration
+
+Every service builds and runs its full test suite (unit + Testcontainers integration tests) on
+each push to `master`, and CodeQL scans the C# code for security issues:
+
+[![identity](https://github.com/amasen02/freshcart-backend/actions/workflows/identity-ci.yml/badge.svg)](https://github.com/amasen02/freshcart-backend/actions/workflows/identity-ci.yml)
+[![catalog](https://github.com/amasen02/freshcart-backend/actions/workflows/catalog-ci.yml/badge.svg)](https://github.com/amasen02/freshcart-backend/actions/workflows/catalog-ci.yml)
+[![pricing](https://github.com/amasen02/freshcart-backend/actions/workflows/pricing-ci.yml/badge.svg)](https://github.com/amasen02/freshcart-backend/actions/workflows/pricing-ci.yml)
+[![basket](https://github.com/amasen02/freshcart-backend/actions/workflows/basket-ci.yml/badge.svg)](https://github.com/amasen02/freshcart-backend/actions/workflows/basket-ci.yml)
+[![ordering](https://github.com/amasen02/freshcart-backend/actions/workflows/ordering-ci.yml/badge.svg)](https://github.com/amasen02/freshcart-backend/actions/workflows/ordering-ci.yml)
+[![inventory](https://github.com/amasen02/freshcart-backend/actions/workflows/inventory-ci.yml/badge.svg)](https://github.com/amasen02/freshcart-backend/actions/workflows/inventory-ci.yml)
+[![payment](https://github.com/amasen02/freshcart-backend/actions/workflows/payment-ci.yml/badge.svg)](https://github.com/amasen02/freshcart-backend/actions/workflows/payment-ci.yml)
+[![delivery](https://github.com/amasen02/freshcart-backend/actions/workflows/delivery-ci.yml/badge.svg)](https://github.com/amasen02/freshcart-backend/actions/workflows/delivery-ci.yml)
+[![notification](https://github.com/amasen02/freshcart-backend/actions/workflows/notification-ci.yml/badge.svg)](https://github.com/amasen02/freshcart-backend/actions/workflows/notification-ci.yml)
+[![customersupport](https://github.com/amasen02/freshcart-backend/actions/workflows/customersupport-ci.yml/badge.svg)](https://github.com/amasen02/freshcart-backend/actions/workflows/customersupport-ci.yml)
+[![reviews](https://github.com/amasen02/freshcart-backend/actions/workflows/reviews-ci.yml/badge.svg)](https://github.com/amasen02/freshcart-backend/actions/workflows/reviews-ci.yml)
+[![reporting](https://github.com/amasen02/freshcart-backend/actions/workflows/reporting-ci.yml/badge.svg)](https://github.com/amasen02/freshcart-backend/actions/workflows/reporting-ci.yml)
+[![gateway](https://github.com/amasen02/freshcart-backend/actions/workflows/gateway-ci.yml/badge.svg)](https://github.com/amasen02/freshcart-backend/actions/workflows/gateway-ci.yml)
+[![codeql](https://github.com/amasen02/freshcart-backend/actions/workflows/codeql.yml/badge.svg)](https://github.com/amasen02/freshcart-backend/actions/workflows/codeql.yml)
 
 ---
 
