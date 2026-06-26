@@ -46,7 +46,7 @@ jobs:
         run: dotnet build "${{ inputs.testProjectPath }}" --configuration Release --no-restore
 
       - name: Test (Release)
-        run: dotnet test "${{ inputs.testProjectPath }}" --configuration Release --no-build --logger "GitHubActions"
+        run: dotnet test "${{ inputs.testProjectPath }}" --configuration Release --no-build
 
       - name: Vulnerable package scan (informational)
         run: dotnet list "${{ inputs.testProjectPath }}" package --vulnerable --include-transitive || true
