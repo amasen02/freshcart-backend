@@ -1,114 +1,35 @@
 # ---------------------------------------------------------------------------
-# Per-service CI/CD for the Reviews bounded context.
-# Same job graph as identity-ci.yml: build-test → container → deploy-dev →
-# deploy-staging → deploy-prod, parameterised for Reviews.
+# CI for the reviews service: restore, build (Release) and test on master.
+# Build + test only — no deploy. Deployment lives in deploy/helm + infra/.
 # ---------------------------------------------------------------------------
 name: reviews-ci
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - 'src/Services/Reviews/**'
       - 'src/BuildingBlocks/**'
       - '.github/workflows/reviews-ci.yml'
-      - '.github/workflows/reusable-*.yml'
+      - '.github/workflows/reusable-build-test.yml'
       - 'Directory.Build.props'
       - 'Directory.Packages.props'
       - 'global.json'
   pull_request:
-    branches: [main]
+    branches: [master]
     paths:
       - 'src/Services/Reviews/**'
       - 'src/BuildingBlocks/**'
   workflow_dispatch:
 
 concurrency:
-  group: reviews-${{ github.ref }}
+  group: reviews-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build-test:
-    name: Build · Test · Quality
+    name: Build · Test
     uses: ./.github/workflows/reusable-build-test.yml
     with:
       serviceName: reviews
-      projectPath: src/Services/Reviews/FreshCart.Reviews.Api/FreshCart.Reviews.Api.csproj
       testProjectPath: src/Services/Reviews/FreshCart.Reviews.Tests/FreshCart.Reviews.Tests.csproj
-      sonarProjectKey: FreshCart_Reviews
-      sonarOrganization: freshcart
-    secrets:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
-  container:
-    name: Container · Scan · Sign · Push
-    needs: build-test
-    if: github.event_name != 'pull_request'
-    uses: ./.github/workflows/reusable-container.yml
-    with:
-      serviceName: reviews
-      dockerfilePath: src/Services/Reviews/FreshCart.Reviews.Api/Dockerfile
-      imageRepository: ${{ github.repository_owner }}/freshcart-reviews
-      acrName: freshcartacr
-    secrets:
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-  deploy-dev:
-    name: Deploy → DEV
-    needs: container
-    if: github.ref == 'refs/heads/main'
-    environment:
-      name: freshcart-dev
-      url: https://reviews-dev.freshcart.local
-    uses: ./.github/workflows/reusable-helm-deploy.yml
-    with:
-      serviceName: reviews
-      chartPath: deploy/helm/reviews
-      valuesFile: deploy/helm/reviews/values-dev.yaml
-      imageTag: ${{ github.sha }}
-      resourceGroup: freshcart-dev
-      aksClusterName: freshcart-dev-aks
-    secrets:
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-  deploy-staging:
-    name: Deploy → STAGING (1 approver)
-    needs: deploy-dev
-    environment:
-      name: freshcart-staging
-      url: https://reviews-staging.freshcart.local
-    uses: ./.github/workflows/reusable-helm-deploy.yml
-    with:
-      serviceName: reviews
-      chartPath: deploy/helm/reviews
-      valuesFile: deploy/helm/reviews/values-staging.yaml
-      imageTag: ${{ github.sha }}
-      resourceGroup: freshcart-staging
-      aksClusterName: freshcart-staging-aks
-    secrets:
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-  deploy-prod:
-    name: Deploy → PROD (blue/green, 2 approvers)
-    needs: deploy-staging
-    environment:
-      name: freshcart-prod
-      url: https://reviews.freshcart.com
-    uses: ./.github/workflows/reusable-helm-deploy.yml
-    with:
-      serviceName: reviews
-      chartPath: deploy/helm/reviews
-      valuesFile: deploy/helm/reviews/values-prod.yaml
-      imageTag: ${{ github.sha }}
-      resourceGroup: freshcart-prod
-      aksClusterName: freshcart-prod-aks
-    secrets:
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}

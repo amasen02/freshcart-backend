@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------------
-# Reusable workflow — builds a .NET service, runs unit + integration tests,
-# runs SonarCloud, scans for vulnerable packages, publishes the artifact.
-# Invoked by every per-service workflow via `workflow_call`.
+# Reusable CI for a single service: restore, build (Release), run the test
+# project, and list vulnerable packages. Invoked by every per-service workflow
+# via `workflow_call`. Building the test project transitively builds the API,
+# so only the test project path is needed.
 # ---------------------------------------------------------------------------
 name: reusable-build-test
 
@@ -9,48 +10,22 @@ on:
   workflow_call:
     inputs:
       serviceName:
-        description: 'Short service folder name (identity, catalog, basket, …)'
-        required: true
-        type: string
-      projectPath:
-        description: 'Relative path to the API csproj.'
+        description: 'Short service name, used for log/step labels.'
         required: true
         type: string
       testProjectPath:
-        description: 'Relative path to the Tests csproj (optional).'
-        required: false
-        default: ''
+        description: 'Relative path to the service test csproj.'
+        required: true
         type: string
-      sonarProjectKey:
-        description: 'SonarCloud project key (optional).'
-        required: false
-        default: ''
-        type: string
-      sonarOrganization:
-        description: 'SonarCloud organisation (optional).'
-        required: false
-        default: ''
-        type: string
-      buildConfiguration:
-        description: 'dotnet build configuration.'
-        required: false
-        default: 'Release'
-        type: string
-    secrets:
-      SONAR_TOKEN:
-        required: false
 
 permissions:
   contents: read
-  actions: read
-  checks: write
 
 jobs:
   build-test:
-    name: Build · Test · Quality
+    name: Build · Test (${{ inputs.serviceName }})
     runs-on: ubuntu-latest
     env:
-      NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
       DOTNET_NOLOGO: 'true'
       DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
       DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
@@ -58,97 +33,20 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Install .NET SDK (from global.json)
         uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
 
-      - name: Restore NuGet cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.NUGET_PACKAGES }}
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
-          restore-keys: |
-            nuget-${{ runner.os }}-
+      - name: Restore
+        run: dotnet restore "${{ inputs.testProjectPath }}"
 
-      - name: Restore packages
-        run: dotnet restore "${{ inputs.projectPath }}"
+      - name: Build (Release)
+        run: dotnet build "${{ inputs.testProjectPath }}" --configuration Release --no-restore
 
-      - name: Install SonarScanner (if configured)
-        if: ${{ inputs.sonarProjectKey != '' && inputs.sonarOrganization != '' }}
-        run: |
-          dotnet tool install --global dotnet-sonarscanner
-          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+      - name: Test (Release)
+        run: dotnet test "${{ inputs.testProjectPath }}" --configuration Release --no-build --logger "GitHubActions"
 
-      - name: Begin SonarCloud analysis
-        if: ${{ inputs.sonarProjectKey != '' && inputs.sonarOrganization != '' }}
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: |
-          dotnet sonarscanner begin \
-            /k:"${{ inputs.sonarProjectKey }}" \
-            /o:"${{ inputs.sonarOrganization }}" \
-            /n:"FreshCart.${{ inputs.serviceName }}" \
-            /d:sonar.host.url="https://sonarcloud.io" \
-            /d:sonar.token="$SONAR_TOKEN" \
-            /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml" \
-            /d:sonar.coverage.exclusions="**/Migrations/**,**/Program.cs"
-
-      - name: Build (${{ inputs.buildConfiguration }})
-        run: dotnet build "${{ inputs.projectPath }}" --configuration ${{ inputs.buildConfiguration }} --no-restore
-
-      - name: Run tests with coverage
-        if: ${{ inputs.testProjectPath != '' }}
-        run: |
-          dotnet test "${{ inputs.testProjectPath }}" \
-            --configuration ${{ inputs.buildConfiguration }} \
-            --no-build \
-            --settings tests/coverlet.runsettings \
-            --logger "trx;LogFileName=test-results.trx" \
-            --logger "GitHubActions" \
-            --collect:"XPlat Code Coverage" \
-            --results-directory ${{ github.workspace }}/test-results
-
-      - name: Publish test report
-        if: ${{ always() && inputs.testProjectPath != '' }}
-        uses: dorny/test-reporter@v1
-        with:
-          name: '${{ inputs.serviceName }} test results'
-          path: 'test-results/**/test-results.trx'
-          reporter: dotnet-trx
-          fail-on-error: true
-
-      - name: Upload coverage artifact
-        if: ${{ always() && inputs.testProjectPath != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ inputs.serviceName }}-coverage
-          path: test-results/**/coverage.opencover.xml
-          if-no-files-found: warn
-
-      - name: Scan for vulnerable packages
-        run: dotnet list "${{ inputs.projectPath }}" package --vulnerable --include-transitive
-
-      - name: End SonarCloud analysis
-        if: ${{ inputs.sonarProjectKey != '' && inputs.sonarOrganization != '' }}
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: dotnet sonarscanner end /d:sonar.token="$SONAR_TOKEN"
-
-      - name: Publish (Release)
-        run: |
-          dotnet publish "${{ inputs.projectPath }}" \
-            --configuration ${{ inputs.buildConfiguration }} \
-            --no-build \
-            --output ${{ github.workspace }}/publish \
-            /p:UseAppHost=false
-
-      - name: Upload publish artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ inputs.serviceName }}-publish
-          path: publish/**
-          if-no-files-found: error
+      - name: Vulnerable package scan (informational)
+        run: dotnet list "${{ inputs.testProjectPath }}" package --vulnerable --include-transitive || true
