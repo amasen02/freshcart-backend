@@ -8,7 +8,7 @@ they keep the senior-architect tone of the codebase.
 
 1. **One concern per pull request.** No drive-by refactors mixed with feature
    work.
-2. **Trunk-based development.** Branch from `main`, keep the branch short
+2. **Trunk-based development.** Branch from `master`, keep the branch short
    (ideally <3 days), squash-merge back.
 3. **Conventional commits** (`feat(scope): …`, `fix(scope): …`,
    `chore(scope): …`, `docs(scope): …`, `refactor(scope): …`,

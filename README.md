@@ -9,6 +9,8 @@
 [![Aspire](https://img.shields.io/badge/Aspire-13-blue)](https://learn.microsoft.com/en-us/dotnet/aspire/)
 [![Azure](https://img.shields.io/badge/Azure-AKS-0078d4)](https://azure.microsoft.com/en-us/products/kubernetes-service)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-blue)](CODE_OF_CONDUCT.md)
 
 The backend platform for FreshCart: twelve bounded contexts, each in a deliberately different
 architectural style, behind a YARP gateway, hosted on Azure Kubernetes Service through Azure
@@ -327,6 +329,23 @@ top of this README.
 - [`SECURITY.md`](SECURITY.md) &mdash; report vulnerabilities privately, never as a public issue.
 - Use the issue templates for bug reports and feature/pattern proposals; green CI (build + tests) is
   required on every pull request.
+
+---
+
+## Open source commitments
+
+This project is, and will remain, free and open source. As maintainer I commit to:
+
+- **A permissive licence, kept stable.** [MIT](LICENSE) &mdash; use it commercially, fork it, build
+  on it. No relicensing of accepted contributions.
+- **No CLA.** Contributions are accepted under the MIT licence; you keep the copyright to your work.
+- **An honest history.** Real, walkable commits tied to shippable increments &mdash; no fabricated
+  activity and no rewritten releases.
+- **Best-effort, transparent triage.** Issues and pull requests are read and answered; security
+  reports are acknowledged within 72 hours (see [`SECURITY.md`](SECURITY.md)).
+- **A welcoming community** governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
+- **Reproducible builds.** Green CI &mdash; build, tests, SonarCloud quality gate, and Trivy image
+  scan &mdash; on every change.
 
 ---
 
