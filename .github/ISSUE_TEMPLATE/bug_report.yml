@@ -1,0 +1,66 @@
+name: Bug report
+description: Report a defect so it can be reproduced and fixed.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. Please search existing issues first to avoid duplicates.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected instead.
+      placeholder: When I ..., I expected ..., but instead ...
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Minimal, ordered steps. Include the command(s) you ran.
+      placeholder: |
+        1. dotnet run --project src/AspireAppHost/FreshCart.AppHost
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected service / area
+      options:
+        - Identity
+        - Catalog
+        - Pricing
+        - Basket
+        - Ordering
+        - Inventory
+        - Payment
+        - Delivery
+        - Notification
+        - CustomerSupport
+        - Reviews
+        - Reporting
+        - Gateway
+        - Angular SPA
+        - AppHost / infrastructure
+        - BuildingBlocks
+        - Other / not sure
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, .NET SDK version (`dotnet --info`), Docker version, and how you ran it (Aspire AppHost / docker compose / Kubernetes).
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or stack trace
+      description: Paste any error output. It will be formatted as code automatically.
+      render: shell
+    validations:
+      required: false

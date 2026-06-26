@@ -1,0 +1,54 @@
+name: Feature request / enhancement
+description: Propose a new capability, a pattern to add, or an improvement.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        FreshCart is a portfolio reference architecture. Proposals that sharpen a pattern, add a missing
+        capability, or improve clarity are welcome — see CONTRIBUTING.md for the bar.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What gap or pain does this address? What is the use case?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What you would build or change, and roughly how it fits the existing architecture.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you weighed and why this one wins.
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Service / area
+      options:
+        - Identity
+        - Catalog
+        - Pricing
+        - Basket
+        - Ordering
+        - Inventory
+        - Payment
+        - Delivery
+        - Notification
+        - CustomerSupport
+        - Reviews
+        - Reporting
+        - Gateway
+        - Angular SPA
+        - AppHost / infrastructure
+        - Cross-cutting / BuildingBlocks
+        - Docs
+    validations:
+      required: true

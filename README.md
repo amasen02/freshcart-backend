@@ -314,9 +314,26 @@ deeper references are:
 
 ---
 
+## Contributing &amp; forking
+
+This is open source under the MIT licence &mdash; **fork it, build on it, take it in your own
+direction.** To run it locally, clone and follow the quickstart above (`dotnet run` the Aspire
+AppHost, or `deploy/docker/docker-compose.yaml`); the seeded demo accounts are in the table near the
+top of this README.
+
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) &mdash; build/test/PR workflow and the coding bar.
+- [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) &mdash; the full coding standards.
+- [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) &mdash; Contributor Covenant.
+- [`SECURITY.md`](SECURITY.md) &mdash; report vulnerabilities privately, never as a public issue.
+- Use the issue templates for bug reports and feature/pattern proposals; green CI (build + tests) is
+  required on every pull request.
+
+---
+
 ## License
 
-MIT &mdash; see [`LICENSE`](LICENSE).
+MIT &mdash; see [`LICENSE`](LICENSE). You are free to use, modify, and distribute this software,
+including for commercial purposes, provided the copyright notice is retained.
 
 ## Author
 
