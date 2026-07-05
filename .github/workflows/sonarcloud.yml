@@ -1,0 +1,77 @@
+# ---------------------------------------------------------------------------
+# SonarCloud quality gate for the whole solution (one project, not one per
+# service — a monorepo analysis needs the full build graph to do meaningful
+# cross-project analysis). Requires a SONAR_TOKEN repo secret; until it's set,
+# the analysis steps skip with a warning instead of failing every run.
+# ---------------------------------------------------------------------------
+name: sonarcloud
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sonarcloud:
+    name: SonarCloud quality gate
+    runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install .NET SDK (from global.json)
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Set up JDK 17 (required by the Sonar scanner)
+        if: ${{ env.SONAR_TOKEN != '' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Cache SonarCloud packages
+        if: ${{ env.SONAR_TOKEN != '' }}
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Install SonarCloud scanner
+        if: ${{ env.SONAR_TOKEN != '' }}
+        run: dotnet tool install --global dotnet-sonarscanner
+
+      - name: Begin analysis
+        if: ${{ env.SONAR_TOKEN != '' }}
+        run: >
+          dotnet-sonarscanner begin
+          /k:"amasen02_freshcart-backend"
+          /o:"amasen02"
+          /d:sonar.token="${{ env.SONAR_TOKEN }}"
+          /d:sonar.host.url="https://sonarcloud.io"
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build (Release)
+        run: dotnet build --configuration Release --no-restore
+
+      - name: End analysis
+        if: ${{ env.SONAR_TOKEN != '' }}
+        run: dotnet-sonarscanner end /d:sonar.token="${{ env.SONAR_TOKEN }}"
+
+      - name: Gate not yet configured
+        if: ${{ env.SONAR_TOKEN == '' }}
+        run: echo "::warning::SONAR_TOKEN is not set — create the amasen02_freshcart-backend project on sonarcloud.io and add SONAR_TOKEN as a repo secret to activate this gate."

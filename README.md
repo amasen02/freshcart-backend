@@ -313,7 +313,12 @@ freshcart-backend/
 ## Continuous integration
 
 Every service builds and runs its full test suite (unit + Testcontainers integration tests) on
-each push to `master`, and CodeQL scans the C# code for security issues:
+each push to `master`, and CodeQL scans the C# code for security issues. Each service's Docker
+image is also built, scanned with **Trivy** (blocks the merge on any fixable HIGH/CRITICAL CVE),
+and — on `master` — pushed to GHCR and keylessly signed with **Cosign** (Sigstore OIDC, no stored
+signing key). A **SonarCloud** whole-solution quality gate (`sonarcloud.yml`) is wired up and
+ready; it activates once a `SONAR_TOKEN` repo secret is added (until then it skips cleanly with a
+warning instead of failing every build):
 
 [![identity](https://github.com/amasen02/freshcart-backend/actions/workflows/identity-ci.yml/badge.svg)](https://github.com/amasen02/freshcart-backend/actions/workflows/identity-ci.yml)
 [![catalog](https://github.com/amasen02/freshcart-backend/actions/workflows/catalog-ci.yml/badge.svg)](https://github.com/amasen02/freshcart-backend/actions/workflows/catalog-ci.yml)
