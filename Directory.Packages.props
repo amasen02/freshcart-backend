@@ -14,6 +14,9 @@
   <ItemGroup Label="ASP.NET Core + Hosting">
     <!-- 10.0.9 servicing line clears CVE-2026-40372 (DataProtection) and CVE-2026-33116/26171 (Cryptography.Xml). -->
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />
+    <!-- Transitive pin: Microsoft.AspNetCore.OpenApi 10.0.9 floors Microsoft.OpenApi at 2.0.0,
+         which carries GHSA-v5pm-xwqc-g5wc (stack-overflow DoS on circular schema refs). Fixed in 2.7.5+. -->
+    <PackageVersion Include="Microsoft.OpenApi" Version="2.9.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.9" />
     <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.9" />
     <PackageVersion Include="Microsoft.Extensions.Identity.Stores" Version="10.0.9" />

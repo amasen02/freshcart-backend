@@ -62,11 +62,17 @@ jobs:
           /d:sonar.token="${{ env.SONAR_TOKEN }}"
           /d:sonar.host.url="https://sonarcloud.io"
 
+      - name: Generate a whole-repo solution file
+        run: |
+          dotnet new sln -n FreshCart
+          find . -name "*.csproj" -not -path "*/bin/*" -not -path "*/obj/*" -print0 \
+            | xargs -0 dotnet sln FreshCart.sln add
+
       - name: Restore
-        run: dotnet restore
+        run: dotnet restore FreshCart.sln
 
       - name: Build (Release)
-        run: dotnet build --configuration Release --no-restore
+        run: dotnet build FreshCart.sln --configuration Release --no-restore
 
       - name: End analysis
         if: ${{ env.SONAR_TOKEN != '' }}
