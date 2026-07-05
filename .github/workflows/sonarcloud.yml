@@ -66,13 +66,13 @@ jobs:
         run: |
           dotnet new sln -n FreshCart
           find . -name "*.csproj" -not -path "*/bin/*" -not -path "*/obj/*" -print0 \
-            | xargs -0 dotnet sln FreshCart.sln add
+            | xargs -0 dotnet sln FreshCart.slnx add
 
       - name: Restore
-        run: dotnet restore FreshCart.sln
+        run: dotnet restore FreshCart.slnx
 
       - name: Build (Release)
-        run: dotnet build FreshCart.sln --configuration Release --no-restore
+        run: dotnet build FreshCart.slnx --configuration Release --no-restore
 
       - name: End analysis
         if: ${{ env.SONAR_TOKEN != '' }}
