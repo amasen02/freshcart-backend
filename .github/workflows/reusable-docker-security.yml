@@ -69,7 +69,7 @@ jobs:
 
       - name: Install Cosign
         if: github.ref == 'refs/heads/master'
-        uses: sigstore/cosign-installer@v4
+        uses: sigstore/cosign-installer@v4.1.2
 
       - name: Sign image (keyless, Sigstore OIDC)
         if: github.ref == 'refs/heads/master'
