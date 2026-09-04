@@ -12,6 +12,7 @@ on:
       - 'src/BuildingBlocks/**'
       - '.github/workflows/delivery-ci.yml'
       - '.github/workflows/reusable-build-test.yml'
+      - '.github/workflows/reusable-docker-security.yml'
       - 'Directory.Build.props'
       - 'Directory.Packages.props'
       - 'global.json'
@@ -33,3 +34,14 @@ jobs:
     with:
       serviceName: delivery
       testProjectPath: src/Services/Delivery/FreshCart.Delivery.Tests/FreshCart.Delivery.Tests.csproj
+
+  docker-security:
+    name: Docker security
+    uses: ./.github/workflows/reusable-docker-security.yml
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    with:
+      serviceName: delivery
+      dockerfilePath: src/Services/Delivery/FreshCart.Delivery.Api/Dockerfile
