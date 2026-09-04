@@ -12,9 +12,10 @@
 [![gRPC](https://img.shields.io/badge/gRPC-internal%20sync-244c5a?logo=grpc&logoColor=white)](https://grpc.io/)
 [![Azure](https://img.shields.io/badge/Azure-AKS-0078d4)](https://azure.microsoft.com/en-us/products/kubernetes-service)
 [![Frontend: Angular 20](https://img.shields.io/badge/frontend-Angular%2020-red)](https://github.com/amasen02/freshcart-web)
-[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
-[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-blue)](CODE_OF_CONDUCT.md)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/amasen02/freshcart-backend/badge)](https://securityscorecards.dev/viewer/?uri=github.com/amasen02/freshcart-backend)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/10332/badge)](https://www.bestpractices.dev/en)
+[![Security Policy](https://img.shields.io/badge/Security-Policy-blue.svg)](.github/SECURITY.md)
+[![Supply Chain: Sigstore](https://img.shields.io/badge/Supply--Chain-Sigstore%20Cosign-success)](https://sigstore.dev)
 
 The backend platform for FreshCart: twelve bounded contexts, each in a deliberately different
 architectural style, behind a YARP gateway, hosted on Azure Kubernetes Service through Azure
