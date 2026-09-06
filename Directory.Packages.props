@@ -12,7 +12,8 @@
   </PropertyGroup>
 
   <ItemGroup Label="ASP.NET Core + Hosting">
-    <!-- 10.0.9 servicing line clears CVE-2026-40372 (DataProtection) and CVE-2026-33116/26171 (Cryptography.Xml). -->
+    <!-- 10.0.9 servicing line clears CVE-2026-40372 (DataProtection). Cryptography.Xml is NOT
+         cleared at 10.0.9 and is pinned separately below. -->
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />
     <!-- Transitive pin: Microsoft.AspNetCore.OpenApi 10.0.9 floors Microsoft.OpenApi at 2.0.0,
          which carries GHSA-v5pm-xwqc-g5wc (stack-overflow DoS on circular schema refs). Fixed in 2.7.5+. -->
@@ -80,6 +81,11 @@
     <!-- MessagePack arrives transitively via SignalR / Aspire. 2.5.301 clears GHSA-hv8m-jj95-wg3x (high)
          on the v2 line; the v3 branch carries breaking API changes and is intentionally avoided. -->
     <PackageVersion Include="MessagePack" Version="2.5.301" />
+    <!-- System.Security.Cryptography.Xml 10.0.9 carries GHSA-23rf-6693-g89p, GHSA-8q5v-6pqq-x66h,
+         GHSA-cvvh-rhrc-wg4q, GHSA-g8r8-53c2-pm3f and GHSA-mmjf-rqrv-855v. 10.0.11 is the current
+         servicing build. SSH.NET 2023.0.0 is flagged high severity with no fix on that line. -->
+    <PackageVersion Include="System.Security.Cryptography.Xml" Version="10.0.11" />
+    <PackageVersion Include="SSH.NET" Version="2026.0.0" />
   </ItemGroup>
 
   <ItemGroup Label="Messaging">
