@@ -1275,16 +1275,16 @@ src/Services/Identity/FreshCart.Identity.Api/Endpoints/Authentication/Authentica
     <table>
       <thead><tr><th>Rank</th><th>Risk</th><th>Control</th><th>Where</th></tr></thead>
       <tbody>
-        <tr><td>A01</td><td>Broken Access Control (now incl. SSRF)</td><td>Per-endpoint <code>[Authorize(Policy = …)]</code>; resource-based auth handlers (BOLA defence); <code>OutboundUrlAllowListHandler</code> rejects non-allowlisted hosts</td><td><code>BuildingBlocks/Security/OutboundUrlAllowListHandler.cs</code></td></tr>
-        <tr><td>A02</td><td>Cryptographic Failures</td><td>HTTPS-only + HSTS preload; TLS 1.3 min; Azure Key Vault; column-level encryption for PII; SQL TDE</td><td>Bicep + per-service value converters</td></tr>
+        <tr><td>A01</td><td>Broken Access Control (now incl. SSRF)</td><td>Per-endpoint <code>[Authorize(Policy = …)]</code>; resource-based auth handlers (BOLA defence); typed clients pin a fixed <code>BaseAddress</code> and dial relative URIs only. <code>OutboundUrlAllowListHandler</code> is implemented but not registered on any client</td><td><code>BuildingBlocks/Security/OutboundUrlAllowListHandler.cs</code></td></tr>
+        <tr><td>A02</td><td>Cryptographic Failures</td><td>HTTPS-only; HSTS 1 year + includeSubDomains from the gateway (no preload); TLS 1.2 floor on Azure-managed resources; Azure Key Vault; data-protection key ring on its own Redis; SQL TDE. No column-level PII encryption</td><td>Bicep + gateway pipeline</td></tr>
         <tr><td>A03</td><td>Injection</td><td>EF Core + Dapper parameterised only; FluentValidation on every command; Angular sanitisation</td><td><code>ValidationBehavior.cs</code></td></tr>
-        <tr><td>A04</td><td>Insecure Design</td><td>ADR per service; STRIDE threat model per bounded context</td><td><code>docs/adr/</code>, <code>docs/threat-models/</code></td></tr>
-        <tr><td>A05</td><td>Security Misconfiguration</td><td>NWebsec-style headers via <code>UseFreshCartSecurityHeaders()</code>: CSP strict, X-Frame-Options=DENY, X-Content-Type-Options=nosniff, Referrer-Policy, Permissions-Policy, COOP/COEP/CORP</td><td><code>BuildingBlocks/Security/SecurityHeadersMiddleware.cs</code></td></tr>
+        <tr><td>A04</td><td>Insecure Design</td><td>ADR per service. Per-bounded-context STRIDE threat models are not written yet</td><td><code>docs/adr/</code></td></tr>
+        <tr><td>A05</td><td>Security Misconfiguration</td><td>Headers via <code>UseFreshCartSecurityHeaders()</code>: CSP strict, X-Frame-Options=DENY, X-Content-Type-Options=nosniff, Referrer-Policy, Permissions-Policy, COOP/COEP/CORP</td><td><code>BuildingBlocks/Security/SecurityHeadersMiddleware.cs</code></td></tr>
         <tr><td>A06</td><td>Software Supply Chain Failures</td><td>Dependabot weekly; <code>dotnet list package --vulnerable</code> in CI; Trivy fails on HIGH+; SBOM (CycloneDX); Cosign image signing</td><td><code>.github/workflows/</code> + <code>azure-pipelines/templates/container-template.yaml</code></td></tr>
         <tr><td>A07</td><td>ID &amp; Auth Failures</td><td>ASP.NET Identity + Argon2id; lockout 5/15 min; HttpOnly + Secure + SameSite=Strict cookie; anti-forgery double-submit; MFA TOTP</td><td><code>Identity.Infrastructure/Cryptography/Argon2PasswordHasher.cs</code></td></tr>
-        <tr><td>A08</td><td>Software / Data Integrity</td><td>Cosign-signed images; admission controller verifies signatures in PROD; transactional outbox + inbox prevents tampered events</td><td>AKS admission policy</td></tr>
-        <tr><td>A09</td><td>Security Logging &amp; Monitoring</td><td>Serilog → App Insights + Log Analytics with correlation id; append-only <code>AuditEvents</code> per service; security event sink</td><td>Every service + <code>EntityFrameworkAuditLog.cs</code></td></tr>
-        <tr><td>A10</td><td>(merged into A01) explicit SSRF defence</td><td><code>OutboundUrlAllowListHandler</code> + AKS egress NetworkPolicy blocking IMDS</td><td><code>deploy/k8s/policies/</code></td></tr>
+        <tr><td>A08</td><td>Software / Data Integrity</td><td>Cosign keyless signing of images pushed from <code>master</code>; transactional outbox + inbox prevents tampered events. No admission policy ships in this repo</td><td><code>.github/workflows/reusable-docker-security.yml</code></td></tr>
+        <tr><td>A09</td><td>Security Logging &amp; Monitoring</td><td>Serilog → App Insights + Log Analytics with correlation id; append-only <code>AuditEvents</code> table in the Identity service</td><td>Identity + <code>EntityFrameworkAuditLog.cs</code></td></tr>
+        <tr><td>A10</td><td>(merged into A01) explicit SSRF defence</td><td>AKS egress NetworkPolicy blocking IMDS + fixed-<code>BaseAddress</code> typed clients. The allow-list handler is written but unregistered</td><td><code>deploy/k8s/*/networkpolicy.yaml</code></td></tr>
       </tbody>
     </table>
   </div>
@@ -1312,9 +1312,9 @@ src/Services/Identity/FreshCart.Identity.Api/Endpoints/Authentication/Authentica
   </div>
 
   <div class="card">
-    <h2>Service-to-service authentication — JWT client credentials</h2>
+    <h2>Service-to-service authentication — shared-secret JWT</h2>
     <ul class="checklist">
-      <li>HS256-signed JWT (signing key in Azure Key Vault; rotated quarterly).</li>
+      <li>HS256-signed JWT. The signing key comes from Azure Key Vault but is the same symmetric secret in every service, and there is no rotation code and no client-credentials endpoint: any service holding it can mint <code>ServiceCaller</code> or <code>Administrator</code> tokens. Asymmetric issuance from Identity is the intended fix and is not implemented.</li>
       <li>Access token lifetime: 15 minutes. Refresh token lifetime: 14 days.</li>
       <li>Refresh-token rotation on every refresh; <strong>reuse detection</strong> revokes the entire token family.</li>
       <li>Plaintext token returned exactly once at issue/rotate; SHA-256 hash persisted.</li>
@@ -1394,7 +1394,6 @@ cd tests/e2e &amp;&amp; npx playwright test</code></pre>
 ├── <span class="dir">docs/</span>
 │   ├── <span class="dir">CONVENTIONS.md</span>                 <span class="comment"># naming, style, async, LINQ discipline</span>
 │   ├── <span class="dir">adr/</span>                           <span class="comment"># architecture decision records</span>
-│   ├── <span class="dir">threat-models/</span>                 <span class="comment"># STRIDE per service</span>
 │   ├── <span class="dir">interview-tour/</span>                <span class="comment"># 90-second pitch per service</span>
 │   └── <span class="dir">FreshCart_Architecture_Guide.html</span> <span class="comment"># this file</span>
 ├── <span class="dir">src/</span>

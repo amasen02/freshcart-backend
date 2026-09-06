@@ -13,7 +13,6 @@
 [![Azure](https://img.shields.io/badge/Azure-AKS-0078d4)](https://azure.microsoft.com/en-us/products/kubernetes-service)
 [![Frontend: Angular 20](https://img.shields.io/badge/frontend-Angular%2020-red)](https://github.com/amasen02/freshcart-web)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/amasen02/freshcart-backend/badge)](https://securityscorecards.dev/viewer/?uri=github.com/amasen02/freshcart-backend)
-[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/10332/badge)](https://www.bestpractices.dev/en)
 [![Security Policy](https://img.shields.io/badge/Security-Policy-blue.svg)](.github/SECURITY.md)
 [![Supply Chain: Sigstore](https://img.shields.io/badge/Supply--Chain-Sigstore%20Cosign-success)](https://sigstore.dev)
 
@@ -184,8 +183,10 @@ See [`index.html`](index.html) &rarr; *Reporting & Invoices* tab for the full su
   worker; consumers idempotent via inbox.
 - **Security headers.** `UseFreshCartSecurityHeaders()` middleware applies CSP strict,
   `X-Frame-Options=DENY`, `Referrer-Policy`, `Permissions-Policy`, COOP/COEP/CORP.
-- **SSRF defence.** `OutboundUrlAllowListHandler` on every typed HttpClient + AKS egress
-  NetworkPolicy blocks `169.254.169.254`.
+- **SSRF exposure.** Both typed HttpClients use a fixed `BaseAddress` with relative request URIs,
+  so no caller-supplied URL reaches an outbound call, and the AKS egress NetworkPolicy blocks
+  `169.254.169.254`. `OutboundUrlAllowListHandler` is written and unit-tested but is not yet
+  attached to any typed HttpClient &mdash; see `SECURITY.md`.
 - **Crypto.** Argon2id password hashing (replaces PBKDF2). Refresh-token reuse detection.
 
 Full OWASP Top-10 2025 mapping in
@@ -347,7 +348,6 @@ deeper references are:
 - [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) &mdash; naming, async, LINQ discipline.
 - [`docs/adr/`](docs/adr/) &mdash; architecture decision records.
 - [`docs/interview-tour/`](docs/interview-tour/) &mdash; 90-second pitch per service.
-- [`docs/threat-models/`](docs/threat-models/) &mdash; STRIDE per bounded context.
 - [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) &mdash; per-service functional + non-functional requirements with a traceability matrix.
 - [`docs/CLASS_DIAGRAMS.md`](docs/CLASS_DIAGRAMS.md) &mdash; Mermaid class + sequence diagrams.
 - [`docs/INTERNAL_ARCHITECTURE.md`](docs/INTERNAL_ARCHITECTURE.md) &mdash; per-service deep dive.

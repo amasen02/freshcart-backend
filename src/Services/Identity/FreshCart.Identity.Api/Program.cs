@@ -39,15 +39,34 @@ webApplicationBuilder.Services
     .AddFreshCartAntiforgery();
 
 // Data-protection keys persist to Redis so every replica and the gateway can decrypt the
-// FreshCart.Session cookie. Integration tests run without a cache connection and fall back
-// to the per-process key ring.
-var cacheConnectionString = webApplicationBuilder.Configuration.GetConnectionString("cache");
-if (!string.IsNullOrWhiteSpace(cacheConnectionString))
-{
-    const string dataProtectionApplicationName = "FreshCart.Identity";
-    const string dataProtectionKeysRedisKey = "freshcart:dataprotection:keys";
+// FreshCart.Session cookie. The ring is plaintext XML and is the material that signs and encrypts that
+// cookie, so whoever can read the store can mint a session for any subject and any role. It therefore
+// gets its own 'dataprotection' connection - a store only Identity and the gateway can reach - instead of
+// the application cache other services also hold credentials for. Integration tests run without either
+// connection and fall back to the per-process key ring.
+const string dataProtectionApplicationName = "FreshCart.Identity";
+const string dataProtectionKeysRedisKey = "freshcart:dataprotection:keys";
 
-    var redisConnectionMultiplexer = await ConnectionMultiplexer.ConnectAsync(cacheConnectionString).ConfigureAwait(false);
+var keyRingConnectionString = webApplicationBuilder.Configuration.GetConnectionString("dataprotection");
+if (string.IsNullOrWhiteSpace(keyRingConnectionString))
+{
+    var cacheConnectionString = webApplicationBuilder.Configuration.GetConnectionString("cache");
+
+    if (!string.IsNullOrWhiteSpace(cacheConnectionString) && !webApplicationBuilder.Environment.IsDevelopment())
+    {
+        throw new InvalidOperationException(
+            "ConnectionStrings:dataprotection is not configured. The data-protection key ring is the " +
+            "signing and encryption material behind the FreshCart.Session cookie and the anti-forgery " +
+            "token, so it must not be written to the application cache that other services can read. " +
+            "Point 'dataprotection' at a store reachable only by Identity and the gateway.");
+    }
+
+    keyRingConnectionString = cacheConnectionString;
+}
+
+if (!string.IsNullOrWhiteSpace(keyRingConnectionString))
+{
+    var redisConnectionMultiplexer = await ConnectionMultiplexer.ConnectAsync(keyRingConnectionString).ConfigureAwait(false);
     webApplicationBuilder.Services.AddSingleton<IConnectionMultiplexer>(redisConnectionMultiplexer);
     webApplicationBuilder.Services
         .AddDataProtection()

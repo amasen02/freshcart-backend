@@ -5,7 +5,6 @@ using FreshCart.Gateway.Yarp.Auth;
 using FreshCart.Gateway.Yarp.Configuration;
 using FreshCart.Gateway.Yarp.Middleware;
 using FreshCart.ServiceDefaults;
-using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Options;
 using Serilog;
 using Yarp.ReverseProxy.Transforms.Builder;
@@ -47,18 +46,18 @@ webApplicationBuilder.Services.AddGatewayCors(webApplicationBuilder.Configuratio
 webApplicationBuilder.Services.AddGatewayRateLimiting();
 
 await webApplicationBuilder.Services
-    .AddGatewaySharedDataProtectionAsync(webApplicationBuilder.Configuration)
+    .AddGatewaySharedDataProtectionAsync(webApplicationBuilder.Configuration, webApplicationBuilder.Environment)
     .ConfigureAwait(false);
 
-webApplicationBuilder.Services.Configure<ForwardedHeadersOptions>(forwardedHeadersOptions =>
-{
-    forwardedHeadersOptions.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+webApplicationBuilder.Services.AddGatewayForwardedHeaders(webApplicationBuilder.Configuration);
 
-    // In AKS the ingress controller is the only trusted hop that sets the forwarded headers; locally
-    // the SPA connects directly. Clearing these lists lets the platform proxy populate the headers
-    // without the gateway second-guessing the source network.
-    forwardedHeadersOptions.KnownIPNetworks.Clear();
-    forwardedHeadersOptions.KnownProxies.Clear();
+// The gateway is the browser-facing origin, so it is the one component whose HSTS policy a user agent
+// ever sees. Preload is deliberately not asserted: it is a domain-wide, practically irreversible
+// commitment that belongs to whoever owns the apex domain, not to this chart.
+webApplicationBuilder.Services.AddHsts(hstsOptions =>
+{
+    hstsOptions.MaxAge = TimeSpan.FromDays(365);
+    hstsOptions.IncludeSubDomains = true;
 });
 
 var reverseProxyBuilder = webApplicationBuilder.Services
@@ -81,7 +80,13 @@ webApplicationBuilder.Services.AddGatewayHealthChecks(webApplicationBuilder.Conf
 
 var application = webApplicationBuilder.Build();
 
-application.UseForwardedHeaders();
+application.UseGatewayForwardedHeaders();
+
+if (!application.Environment.IsDevelopment())
+{
+    application.UseHsts();
+}
+
 application.UseSerilogRequestLogging();
 application.UseFreshCartSecurityHeaders();
 application.UseExceptionHandler();

@@ -135,6 +135,8 @@ secrets:
   externalSecretName: ''
   literal:
     ConnectionStrings__identitydb: ''
+    # Dedicated key-ring store, shared with the gateway only.
+    ConnectionStrings__dataprotection: ''
     Jwt__SigningKey: ''
 
 # Azure Key Vault CSI driver wiring. Set keyVault.name in env values to enable.
@@ -144,6 +146,7 @@ keyVault:
   tenantId: ''
   secrets:
     - identitydb-connection-string
+    - dataprotection-connection-string
     - jwt-signing-key
 
 # Prometheus ServiceMonitor — enabled in environments running Azure Managed Prometheus.

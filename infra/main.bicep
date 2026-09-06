@@ -176,6 +176,20 @@ module redisModule 'modules/redis.bicep' = {
   }
 }
 
+// The data-protection key ring is the signing/encryption material behind the FreshCart.Session cookie.
+// It gets its own cache so that a read of the shared application cache - which Basket, Catalog,
+// CustomerSupport and Notification all hold credentials for - cannot yield the ability to mint sessions.
+module dataProtectionRedisModule 'modules/redis.bicep' = {
+  scope: workloadResourceGroup
+  name: 'redis-dataprotection'
+  params: {
+    workloadName: '${workloadName}-dpkeys'
+    environmentName: environmentName
+    location: location
+    resourceTags: resourceTags
+  }
+}
+
 module serviceBusModule 'modules/service-bus.bicep' = {
   scope: workloadResourceGroup
   name: 'service-bus'

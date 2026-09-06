@@ -275,14 +275,14 @@ Conventions:
 
 | ID | Requirement | Target | Measurement |
 |---|---|---|---|
-| NFR-CC-01 | Transport security | HTTPS only; HSTS preload; TLS 1.3 minimum | Front Door config + integration test |
+| NFR-CC-01 | Transport security | HTTPS only; HSTS `max-age=1y; includeSubDomains` from the gateway (no preload); TLS 1.2 floor on Azure-managed resources | Ingress + gateway pipeline |
 | NFR-CC-02 | Observability | Every request carries a `traceparent` header and lands in App Insights | Integration test asserts trace context propagation |
 | NFR-CC-03 | Error format | RFC 7807 ProblemDetails on every error response | `CustomExceptionHandlerTests` |
 | NFR-CC-04 | Anti-forgery | Double-submit XSRF on every state-changing endpoint behind cookie auth | Integration test |
-| NFR-CC-05 | SSRF defence | Outbound HTTP rejects non-allow-listed hosts | `OutboundUrlAllowListHandlerTests` |
+| NFR-CC-05 | SSRF defence | **Not met.** `OutboundUrlAllowListHandler` is implemented and unit-tested but registered on no HttpClient; today the exposure is bounded by fixed-`BaseAddress` clients and the egress NetworkPolicy | `OutboundUrlAllowListHandlerTests` covers the class only, not the wiring |
 | NFR-CC-06 | Secret storage | Azure Key Vault via Workload Identity in cluster; user-secrets locally | Bicep review + secret-scanning in CI |
 | NFR-CC-07 | Dependency hygiene | Weekly Dependabot + `dotnet list package --vulnerable` in CI | `.github/dependabot.yml` |
-| NFR-CC-08 | Image integrity | Cosign-signed images verified by admission controller in prod | CI + admission policy |
+| NFR-CC-08 | Image integrity | Cosign keyless signing of images pushed from `master` | `.github/workflows/reusable-docker-security.yml`; no admission policy in this repo |
 | NFR-CC-09 | Test coverage | Line coverage on Domain + Application + Behaviors > 85% | Coverlet + SonarCloud quality gate |
 | NFR-CC-10 | Build hygiene | `TreatWarningsAsErrors = true`; Roslyn analyzers run on every build | `Directory.Build.props` |
 
@@ -304,4 +304,4 @@ Conventions:
 | FR-REP-09 | `InvoiceRepository.AllocateNextNumberAsync` | `InvoiceNumberTests.AllocateAndParseRoundTrip` |
 | FR-REP-14 | `OrderConfirmedProjectionConsumer` | `WarehouseProjectionWriterTests.AppliesOrderConfirmedIdempotently` |
 | NFR-CC-03 | `CustomExceptionHandler` | `CustomExceptionHandlerTests.MapsKnownExceptionsToProblemDetails` |
-| NFR-CC-05 | `OutboundUrlAllowListHandler` | `OutboundUrlAllowListHandlerTests.BlocksHostNotOnAllowList` |
+| NFR-CC-05 | `OutboundUrlAllowListHandler` (implemented, not registered) | `OutboundUrlAllowListHandlerTests.BlocksHostNotOnAllowList` — class-level only |

@@ -189,7 +189,7 @@ exception sink, the security primitives. Anything wider belongs in a service, no
 | `CustomExceptionHandler` | RFC 7807 ProblemDetails is the contract every service exposes. The mapping table for domain exceptions to HTTP status codes is repeated nowhere else |
 | `DomainException` + friends | Shared type hierarchy so the exception handler can map them by base type rather than per-exception per-service |
 | `PaginationRequest` + `PaginatedResult` | Same contract on the wire for every paged response. Without this, each service would invent its own page-envelope and clients would proliferate |
-| `OutboundUrlAllowListHandler` | Defence-in-depth against SSRF. The same DelegatingHandler is wired into every typed HttpClient |
+| `OutboundUrlAllowListHandler` | Defence-in-depth against SSRF, for the day a typed HttpClient takes a caller-supplied URL. Written and unit-tested, but **not** currently registered on any typed HttpClient |
 | `SecurityHeadersMiddleware` | Same set of headers on every response. Inconsistency is a vulnerability |
 
 ### What is deliberately not included

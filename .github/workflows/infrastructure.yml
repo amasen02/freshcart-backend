@@ -58,8 +58,39 @@ jobs:
       - name: az bicep build (validate syntax)
         run: az bicep build --file infra/main.bicep --stdout > /dev/null
 
+      # The .bicepparam files read these with no default, so an unset repository secret would reach the
+      # deployment as an empty administrator password rather than as a failure. Fail here instead, and
+      # never echo a value.
+      - name: Assert deployment secrets are configured
+        env:
+          FRESHCART_SQL_ADMIN_PASSWORD: ${{ secrets.FRESHCART_SQL_ADMIN_PASSWORD }}
+          FRESHCART_PG_ADMIN_PASSWORD: ${{ secrets.FRESHCART_PG_ADMIN_PASSWORD }}
+          FRESHCART_MYSQL_ADMIN_PASSWORD: ${{ secrets.FRESHCART_MYSQL_ADMIN_PASSWORD }}
+          FRESHCART_KV_ADMIN_OBJECT_ID: ${{ secrets.FRESHCART_KV_ADMIN_OBJECT_ID }}
+        run: |
+          missing=0
+          required="FRESHCART_SQL_ADMIN_PASSWORD FRESHCART_PG_ADMIN_PASSWORD FRESHCART_MYSQL_ADMIN_PASSWORD FRESHCART_KV_ADMIN_OBJECT_ID"
+          for name in ${required}; do
+            if [ -z "${!name}" ]; then
+              echo "::error::${name} is not configured as a repository secret."
+              missing=1
+            fi
+          done
+          if [ "${missing}" -ne 0 ]; then
+            echo "Refusing to deploy: administrator credentials must come from secrets, not from a parameter-file default."
+            exit 1
+          fi
+
       - name: az deployment sub what-if
         if: ${{ github.event.inputs.mode != 'apply' }}
+        env:
+          FRESHCART_SQL_ADMIN_LOGIN: ${{ secrets.FRESHCART_SQL_ADMIN_LOGIN }}
+          FRESHCART_SQL_ADMIN_PASSWORD: ${{ secrets.FRESHCART_SQL_ADMIN_PASSWORD }}
+          FRESHCART_PG_ADMIN_LOGIN: ${{ secrets.FRESHCART_PG_ADMIN_LOGIN }}
+          FRESHCART_PG_ADMIN_PASSWORD: ${{ secrets.FRESHCART_PG_ADMIN_PASSWORD }}
+          FRESHCART_MYSQL_ADMIN_LOGIN: ${{ secrets.FRESHCART_MYSQL_ADMIN_LOGIN }}
+          FRESHCART_MYSQL_ADMIN_PASSWORD: ${{ secrets.FRESHCART_MYSQL_ADMIN_PASSWORD }}
+          FRESHCART_KV_ADMIN_OBJECT_ID: ${{ secrets.FRESHCART_KV_ADMIN_OBJECT_ID }}
         run: |
           az deployment sub what-if \
             --location eastus \
@@ -69,6 +100,14 @@ jobs:
 
       - name: az deployment sub create (apply)
         if: ${{ github.event.inputs.mode == 'apply' || startsWith(github.ref, 'refs/tags/infra-v') }}
+        env:
+          FRESHCART_SQL_ADMIN_LOGIN: ${{ secrets.FRESHCART_SQL_ADMIN_LOGIN }}
+          FRESHCART_SQL_ADMIN_PASSWORD: ${{ secrets.FRESHCART_SQL_ADMIN_PASSWORD }}
+          FRESHCART_PG_ADMIN_LOGIN: ${{ secrets.FRESHCART_PG_ADMIN_LOGIN }}
+          FRESHCART_PG_ADMIN_PASSWORD: ${{ secrets.FRESHCART_PG_ADMIN_PASSWORD }}
+          FRESHCART_MYSQL_ADMIN_LOGIN: ${{ secrets.FRESHCART_MYSQL_ADMIN_LOGIN }}
+          FRESHCART_MYSQL_ADMIN_PASSWORD: ${{ secrets.FRESHCART_MYSQL_ADMIN_PASSWORD }}
+          FRESHCART_KV_ADMIN_OBJECT_ID: ${{ secrets.FRESHCART_KV_ADMIN_OBJECT_ID }}
         run: |
           az deployment sub create \
             --location eastus \

@@ -125,6 +125,9 @@ config:
   Cors__AllowedOrigins__0: 'https://www.freshcart.local'
   Jwt__Issuer: 'https://identity.freshcart.local'
   Jwt__Audience: 'https://freshcart.local'
+  # Only the in-cluster ingress controller may set X-Forwarded-For. Leaving this unset makes the gateway
+  # ignore the header entirely; widening it would let a caller pick its own rate-limit partition key.
+  ForwardedHeaders__KnownNetworks__0: '10.0.0.0/8'
 
 # Sensitive values - pulled from Azure Key Vault in real environments.
 secrets:
@@ -133,6 +136,8 @@ secrets:
   externalSecretName: ''
   literal:
     ConnectionStrings__cache: ''
+    # Dedicated key-ring store. Must not be the shared cache: whoever reads the ring can mint sessions.
+    ConnectionStrings__dataprotection: ''
     Jwt__SigningKey: ''
 
 # Azure Key Vault CSI driver wiring. Set keyVault.name in env values to enable.
@@ -142,6 +147,7 @@ keyVault:
   tenantId: ''
   secrets:
     - cache-connection-string
+    - dataprotection-connection-string
     - jwt-signing-key
 
 # Prometheus ServiceMonitor - enabled in environments running Azure Managed Prometheus.

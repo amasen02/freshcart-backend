@@ -8,8 +8,11 @@ namespace FreshCart.Gateway.Yarp.Configuration;
 /// <summary>
 /// Edge rate limiting. A global fixed window throttles every client IP, and a stricter named policy
 /// fronts the authentication routes where credential-stuffing is the real threat. The partition key is
-/// the remote IP; behind an ingress the real client address arrives via forwarded headers, which the
-/// pipeline normalises before this limiter runs.
+/// the remote IP. Behind an ingress the real client address arrives via forwarded headers, which
+/// <see cref="GatewayForwardedHeadersConfiguration"/> normalises before this limiter runs -- but only from
+/// a hop named in <c>ForwardedHeaders:KnownProxies</c>/<c>KnownNetworks</c>. That restriction is what keeps
+/// the partition key out of the caller's hands: an untrusted <c>X-Forwarded-For</c> would otherwise let one
+/// client mint an unlimited number of partitions and walk straight through both limiters.
 /// </summary>
 public static class GatewayRateLimiting
 {

@@ -11,3 +11,6 @@ data:
   Cors__AllowedOrigins__0: 'https://www.freshcart.local'
   Jwt__Issuer: 'https://identity.freshcart.local'
   Jwt__Audience: 'https://freshcart.local'
+  # Only the in-cluster ingress controller may set X-Forwarded-For. Leaving this unset makes the gateway
+  # ignore the header entirely; widening it would let a caller pick its own rate-limit partition key.
+  ForwardedHeaders__KnownNetworks__0: '10.0.0.0/8'
