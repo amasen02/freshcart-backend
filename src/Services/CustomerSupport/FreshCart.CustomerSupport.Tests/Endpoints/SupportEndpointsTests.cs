@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Text.Json;
 using FluentAssertions;
 using FreshCart.CustomerSupport.Api.Domain;
 using Xunit;
@@ -121,6 +122,41 @@ public sealed class SupportEndpointsTests(SupportApiFactory factory) : IClassFix
         var response = await SendAsync(HttpMethod.Get, "/support/sessions/", Guid.NewGuid(), AdministratorRole);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task OpenApiDescribesSupportEndpointsAndResponseSchemas()
+    {
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/openapi/v1.json");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        await using var documentStream = await response.Content.ReadAsStreamAsync();
+        using var document = await JsonDocument.ParseAsync(documentStream);
+        var paths = document.RootElement.GetProperty("paths");
+
+        AssertOperation(paths, "/support/sessions/active", "A customer's own open session (204 when none) or an agent's active sessions.");
+        AssertOperation(paths, "/support/sessions/{sessionId}/messages", "Transcript for a session, ascending by send time, paginated. Participant or administrator only.");
+        AssertOperation(paths, "/support/sessions", "All sessions, paginated and filterable by status. Back-office staff only.");
+    }
+
+    private static void AssertOperation(JsonElement paths, string path, string expectedSummary)
+    {
+        var operation = paths.GetProperty(path).GetProperty("get");
+
+        operation.GetProperty("summary").GetString().Should().Be(expectedSummary);
+        operation.GetProperty("tags").EnumerateArray().Select(tag => tag.GetString()).Should().Contain("CustomerSupport");
+
+        var responseSchema = operation
+            .GetProperty("responses")
+            .GetProperty("200")
+            .GetProperty("content")
+            .GetProperty("application/json")
+            .GetProperty("schema");
+
+        responseSchema.ValueKind.Should().NotBe(JsonValueKind.Undefined);
+        responseSchema.ValueKind.Should().NotBe(JsonValueKind.Null);
     }
 
     private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string uri, Guid userId, string role)
