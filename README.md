@@ -49,15 +49,23 @@ cd freshcart-web && npm ci && npm start
 
 | Surface | URL | What it shows |
 |---|---|---|
-| **Customer storefront** | http://localhost:4200 | Catalog, basket, checkout, orders, support chat, real-time notifications |
+| **Customer storefront** | https://localhost:4200 | Catalog, basket, checkout, orders, support chat, real-time notifications |
 | **Aspire dashboard** | http://localhost:15888 | Every service + live traces, metrics, logs |
 | **YARP API Gateway** | https://localhost:7100 | Single public edge; cookie-to-JWT BFF exchange |
 | **Identity API** (OpenAPI) | https://localhost:7101 | Sign-up, sign-in, refresh, MFA enrollment |
+| **Customer Support API** (development Swagger UI) | https://localhost:7111/swagger | OpenAPI schema exploration; support operations still require a JWT |
 | **Reporting API** (OpenAPI) | https://localhost:7110 | Dashboards, invoices, Excel exports |
 | **Seq** (logs) | http://localhost:5341 | Structured logs across every service |
 | **Grafana** (metrics) | http://localhost:3000 | RED + USE dashboards (`admin / freshcart_local_dev`) |
 | **Prometheus** | http://localhost:9090 | Raw metric store |
 | **RabbitMQ management** | http://localhost:15672 | Queues + exchanges (`freshcart / freshcart_local_dev`) |
+
+Customer Support exposes its OpenAPI surface locally during Development:
+
+- `https://localhost:7111/swagger` serves the self-hosted Swagger UI assets.
+- `https://localhost:7111/openapi/v1.json` serves the generated document consumed by that UI.
+- The document endpoint is available for local schema exploration; support operations remain protected by their configured JWT policies. The UI does not mint or supply credentials.
+- `GET /support/sessions/active` returns `ChatSessionDto` values; `GET /support/sessions` returns a paginated `ChatSessionDto` envelope; and `GET /support/sessions/{sessionId}/messages` returns a paginated `ChatMessageDto` envelope.
 
 ### Sign in with one of the seeded accounts
 
@@ -77,7 +85,7 @@ cd freshcart-web && npm ci && npm start
 
 ### 90-second guided tour after sign-in
 
-1. Open <http://localhost:4200> &rarr; sign in as `demo@freshcart.test`.
+1. Open <https://localhost:4200> &rarr; sign in as `demo@freshcart.test`.
 2. Browse the catalog (30 seeded products across 8 categories), add three items to the basket.
 3. Check out &mdash; accept the default address. The Ordering saga drives stock reservation,
    payment capture, and delivery booking.

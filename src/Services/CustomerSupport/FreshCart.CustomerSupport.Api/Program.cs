@@ -90,6 +90,7 @@ application.UseExceptionHandler();
 if (application.Environment.IsDevelopment())
 {
     application.MapOpenApi();
+    DevelopmentSwaggerUi.Use(application);
 }
 else
 {

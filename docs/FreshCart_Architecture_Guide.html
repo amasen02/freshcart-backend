@@ -263,7 +263,7 @@ cd freshcart-web &amp;&amp; npm install &amp;&amp; npm start</code></pre>
     <div class="card-grid">
       <div class="mini-card" style="border-left:4px solid var(--green);">
         <h4>Customer storefront</h4>
-        <p><a href="http://localhost:4200" target="_blank"><code>http://localhost:4200</code></a></p>
+        <p><a href="https://localhost:4200" target="_blank"><code>https://localhost:4200</code></a></p>
         <p style="font-size:.78rem;">Sign in &rarr; browse catalog &rarr; basket &rarr; checkout &rarr; receive a SignalR notification.</p>
       </div>
       <div class="mini-card" style="border-left:4px solid var(--purple);">
@@ -341,7 +341,7 @@ cd freshcart-web &amp;&amp; npm install &amp;&amp; npm start</code></pre>
 
     <h3 style="margin-top:1.2rem;">90-second guided tour after sign-in</h3>
     <ol class="steps">
-      <li>Open <a href="http://localhost:4200" target="_blank">http://localhost:4200</a> &rarr; sign in as <code>demo@freshcart.test</code>.</li>
+      <li>Open <a href="https://localhost:4200" target="_blank">https://localhost:4200</a> &rarr; sign in as <code>demo@freshcart.test</code>.</li>
       <li>Browse the catalog (seeded with 30 sample products across 8 categories), add three items to the basket.</li>
       <li>Check out &mdash; accept the default address. Watch the saga progress through stock reservation, payment capture and delivery booking.</li>
       <li>A toast notification appears in the top-right within ~1 second (SignalR push from <code>NotificationHub</code> via Redis backplane).</li>
@@ -1377,7 +1377,7 @@ dotnet run --project src/Services/Identity/FreshCart.Identity.Api
 git clone https://github.com/amasen02/freshcart-web.git
 cd freshcart-web
 npm install
-npm start                     # http://localhost:4200
+npm start                     # https://localhost:4200
 
 # 5. Run the full test suite
 dotnet test src/FreshCart.sln

@@ -15,6 +15,7 @@
     <!-- 10.0.9 servicing line clears CVE-2026-40372 (DataProtection). Cryptography.Xml is NOT
          cleared at 10.0.9 and is pinned separately below. -->
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />
+    <PackageVersion Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.2.3" />
     <!-- Transitive pin: Microsoft.AspNetCore.OpenApi 10.0.9 floors Microsoft.OpenApi at 2.0.0,
          which carries GHSA-v5pm-xwqc-g5wc (stack-overflow DoS on circular schema refs). Fixed in 2.7.5+. -->
     <PackageVersion Include="Microsoft.OpenApi" Version="2.9.0" />

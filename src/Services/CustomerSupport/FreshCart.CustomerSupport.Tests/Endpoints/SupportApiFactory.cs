@@ -28,13 +28,20 @@ public sealed class SupportApiFactory : WebApplicationFactory<Program>
     private const string Audience = "https://freshcart.test";
     private const string SigningKey = "customer-support-endpoint-integration-test-signing-key";
 
+    public string EnvironmentName { get; set; } = "Development";
+
     public InMemoryChatSessionRepository Sessions { get; } = new();
 
     public InMemoryChatMessageRepository Messages { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Development");
+        builder.UseEnvironment(EnvironmentName);
+        builder.UseSetting("ConnectionStrings:supportchatdb", "mongodb://localhost:27017/freshcart_support_endpoint_tests");
+        builder.UseSetting("ConnectionStrings:cache", "localhost:6379");
+        builder.UseSetting("Jwt:Issuer", Issuer);
+        builder.UseSetting("Jwt:Audience", Audience);
+        builder.UseSetting("Jwt:SigningKey", SigningKey);
 
         builder.ConfigureAppConfiguration((_, configurationBuilder) =>
             configurationBuilder.AddInMemoryCollection(new Dictionary<string, string?>(StringComparer.Ordinal)
