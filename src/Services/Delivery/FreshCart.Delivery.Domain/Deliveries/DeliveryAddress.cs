@@ -1,3 +1,5 @@
+using FreshCart.BuildingBlocks.Addressing;
+
 namespace FreshCart.Delivery.Domain.Deliveries;
 
 /// <summary>
@@ -12,6 +14,10 @@ public sealed record DeliveryAddress
         ArgumentException.ThrowIfNullOrWhiteSpace(city);
         ArgumentException.ThrowIfNullOrWhiteSpace(postalCode);
         ArgumentException.ThrowIfNullOrWhiteSpace(countryCode);
+        if (!PostalCodeFormatPolicy.IsValid(countryCode, postalCode))
+        {
+            throw new ArgumentException("Postal code format is invalid for the selected country.", nameof(postalCode));
+        }
 
         Line1 = line1;
         Line2 = line2;
