@@ -30,7 +30,9 @@ start_stack() {
   snapshot_docker "$state_dir"
   (cd "$backend_dir" && exec setsid env FreshCart__Ephemeral=true dotnet run --project src/AspireAppHost/FreshCart.AppHost/FreshCart.AppHost.csproj --launch-profile http) > "$state_dir/apphost.log" 2>&1 &
   echo $! > "$state_dir/apphost.pid"
-  (cd "$frontend_dir" && exec setsid npm start -- --host 127.0.0.1 --port 4200) > "$state_dir/storefront.log" 2>&1 &
+  # WebKit rejects Secure cookies on plain HTTP localhost. Keep the production cookie policy
+  # intact and serve the CI storefront over the ephemeral dev certificate instead.
+  (cd "$frontend_dir" && exec setsid npm start -- --host 127.0.0.1 --port 4200 --ssl true) > "$state_dir/storefront.log" 2>&1 &
   echo $! > "$state_dir/storefront.pid"
 }
 
@@ -70,12 +72,43 @@ wait_for_stack() {
   wait_one notification http://localhost:5109/ready
   wait_one reporting http://localhost:5110/ready
   wait_one gateway https://localhost:7100/ready true
-  wait_one storefront http://localhost:4200
+  wait_one storefront https://localhost:4200 true
 }
 
 new_docker_ids() {
   local kind=$1 before_file=$2
   case "$kind" in containers) docker ps -aq ;; volumes) docker volume ls -q ;; networks) docker network ls -q ;; esac | sort -u | comm -13 "$before_file" -
+}
+
+collect_diagnostics() {
+  local state_dir=$1 diagnostics_dir=$1/diagnostics
+  mkdir -p "$diagnostics_dir"
+  for snapshot in containers.before volumes.before networks.before; do
+    if [[ ! -f "$state_dir/$snapshot" ]]; then
+      echo "Docker ownership snapshot unavailable; no Docker diagnostics collected." > "$diagnostics_dir/README.txt"
+      return 0
+    fi
+  done
+
+  : > "$diagnostics_dir/containers.txt"
+  mapfile -t containers < <(new_docker_ids containers "$state_dir/containers.before")
+  for container in "${containers[@]}"; do
+    docker inspect --format '{{.Name}} status={{.State.Status}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container" >> "$diagnostics_dir/containers.txt" 2>&1 || true
+    docker logs --tail 80 "$container" > "$diagnostics_dir/container-$container.log" 2>&1 || true
+  done
+
+  : > "$diagnostics_dir/volumes.txt"
+  mapfile -t volumes < <(new_docker_ids volumes "$state_dir/volumes.before")
+  for volume in "${volumes[@]}"; do
+    docker volume inspect --format '{{.Name}} driver={{.Driver}}' "$volume" >> "$diagnostics_dir/volumes.txt" 2>&1 || true
+  done
+
+  : > "$diagnostics_dir/networks.txt"
+  mapfile -t networks < <(new_docker_ids networks "$state_dir/networks.before")
+  for network in "${networks[@]}"; do
+    docker network inspect --format '{{.Name}} driver={{.Driver}}' "$network" >> "$diagnostics_dir/networks.txt" 2>&1 || true
+  done
+  echo "Collected bounded diagnostics for ${#containers[@]} containers, ${#volumes[@]} volumes, and ${#networks[@]} networks." > "$diagnostics_dir/README.txt"
 }
 
 cleanup() {
@@ -107,5 +140,5 @@ cleanup() {
 
 if [[ "${FRESHCART_STACK_LIB_ONLY:-}" != 1 ]]; then
   command_name=${1:-}; shift || true
-  case "$command_name" in preflight) preflight "$@" ;; start) start_stack "$@" ;; wait) wait_for_stack "$@" ;; cleanup) cleanup "$@" ;; *) echo "Usage: $0 {preflight|start|wait|cleanup}" >&2; exit 2 ;; esac
+  case "$command_name" in preflight) preflight "$@" ;; start) start_stack "$@" ;; wait) wait_for_stack "$@" ;; diagnostics) collect_diagnostics "$@" ;; cleanup) cleanup "$@" ;; *) echo "Usage: $0 {preflight|start|wait|diagnostics|cleanup}" >&2; exit 2 ;; esac
 fi

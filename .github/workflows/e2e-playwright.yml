@@ -23,7 +23,7 @@ permissions:
 
 env:
   FRONTEND_SHA: acab0f75cf2622566d1edf340ef626d739604958
-  STACK_STATE: ${{ github.workspace }}/.freshcart-e2e
+  STACK_STATE: ${{ github.workspace }}/freshcart-e2e-state
 
 jobs:
   e2e:
@@ -96,7 +96,7 @@ jobs:
       - name: Verify customer test discovery
         working-directory: tests/e2e
         env:
-          PLAYWRIGHT_BASE_URL: http://localhost:4200
+          PLAYWRIGHT_BASE_URL: https://localhost:4200
         run: |
           mkdir -p test-results
           npx playwright test specs/auth.spec.ts specs/customer-journey.spec.ts --project=${{ matrix.project }} --list | tee test-results/discovery.txt
@@ -105,7 +105,7 @@ jobs:
       - name: Run customer journey gate
         working-directory: tests/e2e
         env:
-          PLAYWRIGHT_BASE_URL: http://localhost:4200
+          PLAYWRIGHT_BASE_URL: https://localhost:4200
         run: npx playwright test specs/auth.spec.ts specs/customer-journey.spec.ts --project=${{ matrix.project }}
 
       - name: Verify executed test count
@@ -124,6 +124,10 @@ jobs:
           console.log('Verified 2 passing customer tests with 0 skipped.');
           NODE
 
+      - name: Collect bounded owned Docker diagnostics
+        if: always()
+        run: bash .github/scripts/freshcart-e2e-stack.sh diagnostics "$STACK_STATE"
+
       - name: Upload E2E evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -133,6 +137,7 @@ jobs:
             tests/e2e/playwright-report
             tests/e2e/test-results
             ${{ env.STACK_STATE }}/*.log
+            ${{ env.STACK_STATE }}/diagnostics
           retention-days: 14
           if-no-files-found: warn
 

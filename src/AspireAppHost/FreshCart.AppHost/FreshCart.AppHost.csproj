@@ -28,6 +28,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="mongo-replica-set-init.sh" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\Services\Identity\FreshCart.Identity.Api\FreshCart.Identity.Api.csproj" />
     <ProjectReference Include="..\..\Services\Catalog\FreshCart.Catalog.Api\FreshCart.Catalog.Api.csproj" />
     <ProjectReference Include="..\..\Services\Pricing\FreshCart.Pricing.Grpc\FreshCart.Pricing.Grpc.csproj" />

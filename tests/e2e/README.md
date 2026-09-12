@@ -14,12 +14,21 @@ dashboard. Runs against any deployed environment — pass the URL via `PLAYWRIGH
 ## Running locally
 
 ```bash
+# In the storefront checkout (keep this process running).
+npm start -- --host 127.0.0.1 --port 4200 --ssl true
+
+# In this checkout.
 cd tests/e2e
 npm ci
 npm run install:browsers
-export PLAYWRIGHT_BASE_URL=http://localhost:4200
+export PLAYWRIGHT_BASE_URL=https://localhost:4200
 npm test
 ```
+
+The CI stack uses the same HTTPS setup because the session cookie is `Secure` and WebKit rejects
+that cookie on plain HTTP localhost. Playwright already ignores the local development certificate.
+Plain HTTP remains compatible with flows that do not depend on the session cookie, but it cannot
+satisfy this full WebKit authentication suite.
 
 Open the HTML report:
 

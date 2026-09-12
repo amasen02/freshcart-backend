@@ -18,6 +18,7 @@ test.describe('Authentication — cookie-first sign-in', () => {
     const sessionCookie = cookiesAfterSignUp.find(cookie => cookie.name === 'FreshCart.Session');
     expect(sessionCookie, 'Session cookie must be present after sign-up').toBeDefined();
     expect(sessionCookie?.httpOnly).toBe(true);
+    expect(sessionCookie?.secure).toBe(true);
     expect(sessionCookie?.sameSite?.toLowerCase()).toBe('strict');
 
     // The XSRF-TOKEN companion must also be set (readable so the SPA can echo it).
@@ -26,10 +27,12 @@ test.describe('Authentication — cookie-first sign-in', () => {
     expect(antiForgeryCookie?.httpOnly).toBe(false);
 
     // Act — sign out, then sign in again
-    await page.getByRole('button', { name: /sign out/i }).click();
-    await expect(page.getByRole('link', { name: /sign in/i })).toBeVisible();
+    await customerJourney.signOut();
+    const cookiesAfterSignOut = await context.cookies();
+    expect(cookiesAfterSignOut.find(cookie => cookie.name === 'FreshCart.Session')).toBeUndefined();
 
     await customerJourney.signIn(profile.email, profile.password);
+    await customerJourney.openAccountMenu();
     await expect(page.getByRole('button', { name: /sign out/i })).toBeVisible();
   });
 });

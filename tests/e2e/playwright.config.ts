@@ -15,7 +15,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: isCi,
   retries: isCi ? 2 : 0,
-  workers: isCi ? 2 : undefined,
+  ...(isCi ? { workers: 2 } : {}),
   // A full cold-stack journey (slow first sign-up, checkout saga, SignalR push) can run well past the
   // default 30s; 120s leaves headroom on a freshly booted, resource-contended environment.
   timeout: 120_000,

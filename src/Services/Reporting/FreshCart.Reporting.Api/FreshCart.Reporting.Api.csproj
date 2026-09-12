@@ -11,6 +11,12 @@
     <PackageReference Include="Carter" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <!-- The reporting infrastructure uses Pomelo 9, which requires the EF Core 9 line.
+         Pin the full EF runtime graph in this host so transitive central EF 10 pins cannot
+         load alongside the provider in the same process. Other services keep the central EF 10 pin. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" VersionOverride="9.0.17" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Abstractions" VersionOverride="9.0.17" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" VersionOverride="9.0.17" />
     <PackageReference Include="AspNetCore.HealthChecks.UI.Client" />
     <PackageReference Include="AspNetCore.HealthChecks.MySql" />
     <PackageReference Include="Serilog.AspNetCore" />

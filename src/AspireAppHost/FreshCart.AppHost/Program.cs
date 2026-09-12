@@ -1,3 +1,7 @@
+using Aspire.Hosting.ApplicationModel;
+using FreshCart.AppHost;
+using Microsoft.Extensions.DependencyInjection;
+
 // ---------------------------------------------------------------------------
 //  FreshCart.AppHost
 //  Aspire-orchestrated local boot. Backing services start as persistent
@@ -81,15 +85,19 @@ var reportingWarehouse = mysql.AddDatabase("reportingdb")
 // collections in one MongoDB transaction, which a standalone mongod rejects. Aspire's AddMongoDB starts a
 // standalone (with auth) and has no replica-set switch, so the container is run as a single-node replica
 // set: a wrapper entrypoint generates the keyfile internal auth requires, hands off to the stock entrypoint
-// (which still creates the admin user) with --replSet + --keyFile, and a backgrounded task runs rs.initiate
-// once mongod answers — idempotent, since rs.status throws only until the set is initiated, so a restart
-// against the persisted volume re-initiates nothing. The single member advertises the container-internal
+// (which still creates the admin user) with --replSet + --keyFile, and a backgrounded task runs the
+// packaged initializer once the final authenticated mongod answers. The initializer survives the
+// official image's temporary standalone initdb process, then becomes idempotent because an existing
+// writable primary is accepted.
+// The single member advertises the container-internal
 // host, so service processes connect with directConnection=true (see ReferenceMongoDatabase) and use the
-// seed they are given instead of resolving that host. The script is one line so the C# source's line
-// endings can never put a stray carriage return into the shell command. Verified end-to-end against the
-// mongo:7 image (fresh init, persistent-volume restart, and a committed multi-document transaction).
-const string MongoReplicaSetInitScript =
-    """KEYFILE=/data/configdb/replica-set.key; if [ ! -f "$KEYFILE" ]; then openssl rand -base64 756 > "$KEYFILE"; chmod 400 "$KEYFILE"; chown mongodb:mongodb "$KEYFILE"; fi; ( until mongosh --quiet -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval "db.adminCommand({ping:1}).ok" >/dev/null 2>&1; do sleep 0.5; done; mongosh --quiet -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval 'try { rs.status().ok } catch (e) { rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]}) }' ) & exec docker-entrypoint.sh mongod --replSet rs0 --keyFile "$KEYFILE" --bind_ip_all""";
+// seed they are given instead of resolving that host. Normalize the packaged file because the host may
+// be checked out with either repository line-ending setting.
+var mongoReplicaSetInitScript = (await File.ReadAllTextAsync(
+        Path.Combine(AppContext.BaseDirectory, "mongo-replica-set-init.sh"))
+    .ConfigureAwait(false))
+    .Replace("\r\n", "\n", StringComparison.Ordinal)
+    .Replace('\r', '\n');
 
 var mongo = distributedApplicationBuilder
     .AddMongoDB("mongodb")
@@ -98,7 +106,7 @@ var mongo = distributedApplicationBuilder
     {
         context.Args.Clear();
         context.Args.Add("-c");
-        context.Args.Add(MongoReplicaSetInitScript);
+        context.Args.Add(mongoReplicaSetInitScript);
         return Task.CompletedTask;
     });
 if (usePersistentBackingResources)
@@ -111,6 +119,43 @@ var paymentEventStore = mongo.AddDatabase("paymentevents");
 var reviewsDatabase = mongo.AddDatabase("reviewsdb");
 var supportChatTranscripts = mongo.AddDatabase("supportchatdb");
 var notificationsDatabase = mongo.AddDatabase("notificationsdb");
+
+// Aspire.Hosting.MongoDB 9.5.2 builds its server and database health-check clients from the default
+// connection expressions. Mongo advertises the replica-set member as 127.0.0.1:27017, which is the
+// container address rather than the random host-mapped endpoint used by the AppHost. The application
+// services already use directConnection=true; use the same setting for every AppHost health client so
+// WaitFor(database) remains a real authenticated Mongo readiness gate instead of waiting on a wrong
+// discovered member forever.
+const string mongoServerHealthCheck = "mongodb_direct_check";
+var mongoHealthChecks = distributedApplicationBuilder.Services.AddHealthChecks();
+mongoHealthChecks.AddCheck(
+    mongoServerHealthCheck,
+    new MongoDirectReadinessCheck(
+        ReferenceExpression.Create($"{mongo.Resource.ConnectionStringExpression}&directConnection=true"),
+        "admin"));
+mongo.WithAnnotation(
+    new HealthCheckAnnotation(mongoServerHealthCheck),
+    ResourceAnnotationMutationBehavior.Replace);
+
+void RegisterMongoDatabaseHealthCheck(
+    IResourceBuilder<MongoDBDatabaseResource> database,
+    string healthCheckName)
+{
+    mongoHealthChecks.AddCheck(
+        healthCheckName,
+        new MongoDirectReadinessCheck(
+            ReferenceExpression.Create($"{database.Resource.ConnectionStringExpression}&directConnection=true"),
+            database.Resource.DatabaseName));
+    database.WithAnnotation(
+        new HealthCheckAnnotation(healthCheckName),
+        ResourceAnnotationMutationBehavior.Replace);
+}
+
+RegisterMongoDatabaseHealthCheck(deliveryDatabase, "mongodb_delivery_direct_check");
+RegisterMongoDatabaseHealthCheck(paymentEventStore, "mongodb_payment_direct_check");
+RegisterMongoDatabaseHealthCheck(reviewsDatabase, "mongodb_reviews_direct_check");
+RegisterMongoDatabaseHealthCheck(supportChatTranscripts, "mongodb_support_direct_check");
+RegisterMongoDatabaseHealthCheck(notificationsDatabase, "mongodb_notifications_direct_check");
 
 // --- Cache + broker ---------------------------------------------------------
 
