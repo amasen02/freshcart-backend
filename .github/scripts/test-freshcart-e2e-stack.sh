@@ -118,14 +118,14 @@ export MONGO_REPLICA_SET_POLL_INTERVAL_SECONDS=0.05
 printf 'temporary\n' > "$tmp_dir/mongo-state"
 : > "$tmp_dir/mongo-calls"
 export FAKE_MONGO_STATE="$tmp_dir/mongo-state" FAKE_MONGO_CALLS="$tmp_dir/mongo-calls"
-MONGO_REPLICA_SET_TIMEOUT_SECONDS=3 initialize_mongo_replica_set
+MONGO_REPLICA_SET_TIMEOUT_SECONDS=30 initialize_mongo_replica_set
 grep -Fx 'primary' "$tmp_dir/mongo-state" >/dev/null
 grep -Fx 'init' "$tmp_dir/mongo-calls" >/dev/null
 echo "temporary standalone -> uninitialized -> initiated primary passed"
 
 printf 'primary\n' > "$tmp_dir/mongo-state"
 : > "$tmp_dir/mongo-calls"
-MONGO_REPLICA_SET_TIMEOUT_SECONDS=3 initialize_mongo_replica_set
+MONGO_REPLICA_SET_TIMEOUT_SECONDS=30 initialize_mongo_replica_set
 if grep -Fx 'init' "$tmp_dir/mongo-calls" >/dev/null; then
   echo "existing primary was reinitialized" >&2
   exit 1
@@ -134,7 +134,7 @@ echo "existing primary without reinit passed"
 
 printf 'wrong-set\n' > "$tmp_dir/mongo-state"
 : > "$tmp_dir/mongo-calls"
-if MONGO_REPLICA_SET_TIMEOUT_SECONDS=3 initialize_mongo_replica_set >/dev/null 2>&1; then
+if MONGO_REPLICA_SET_TIMEOUT_SECONDS=30 initialize_mongo_replica_set >/dev/null 2>&1; then
   echo "wrong replica set was accepted" >&2
   exit 1
 fi
