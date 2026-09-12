@@ -1,27 +1,18 @@
-# ---------------------------------------------------------------------------
-# Playwright end-to-end — runs the customer happy-path against the local
-# Aspire stack on PR, against staging on a nightly cron.
-# ---------------------------------------------------------------------------
 name: e2e-playwright
 
 on:
   pull_request:
-    branches: [main]
+    branches: [master]
     paths:
       - 'src/Services/**'
       - 'src/ApiGateways/**'
+      - 'src/AspireAppHost/**'
       - 'tests/e2e/**'
+      - '.github/scripts/**'
       - '.github/workflows/e2e-playwright.yml'
   schedule:
-    - cron: '0 3 * * *'         # nightly 03:00 UTC against staging
+    - cron: '0 3 * * *'
   workflow_dispatch:
-    inputs:
-      target:
-        description: 'Environment to target'
-        required: true
-        default: 'local'
-        type: choice
-        options: [local, dev, staging]
 
 concurrency:
   group: e2e-${{ github.ref }}
@@ -30,53 +21,121 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  FRONTEND_SHA: acab0f75cf2622566d1edf340ef626d739604958
+  STACK_STATE: ${{ github.workspace }}/.freshcart-e2e
+
 jobs:
   e2e:
     name: Playwright (${{ matrix.project }})
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
         project: [chromium, firefox, webkit]
 
     steps:
-      - name: Checkout
+      - name: Checkout backend
         uses: actions/checkout@v4
+
+      - name: Checkout compatible customer storefront
+        uses: actions/checkout@v4
+        with:
+          repository: amasen02/freshcart-web
+          ref: ${{ env.FRONTEND_SHA }}
+          path: freshcart-web
+
+      - name: Use .NET SDK from global.json
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
 
       - name: Use Node 22
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: tests/e2e/package-lock.json
+          cache: npm
+          cache-dependency-path: |
+            freshcart-web/package-lock.json
+            tests/e2e/package-lock.json
 
-      - name: Install Playwright + dependencies
-        working-directory: tests/e2e
+      - name: Verify runner prerequisites
+        run: bash .github/scripts/freshcart-e2e-stack.sh preflight
+
+      - name: Install storefront and Playwright
         run: |
-          npm ci
-          npx playwright install --with-deps ${{ matrix.project }}
+          npm ci --prefix freshcart-web
+          npm ci --prefix tests/e2e
+          npx --prefix tests/e2e playwright install --with-deps ${{ matrix.project }}
+          dotnet dev-certs https
 
-      - name: Resolve target URL
-        id: target
+      - name: Record runtime identity
+        shell: bash
         run: |
-          if [ "${{ github.event.inputs.target }}" = "staging" ] || [ "${{ github.event_name }}" = "schedule" ]; then
-            echo "url=https://www.staging.freshcart.local" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event.inputs.target }}" = "dev" ]; then
-            echo "url=https://www.dev.freshcart.local" >> "$GITHUB_OUTPUT"
-          else
-            echo "url=http://localhost:4200" >> "$GITHUB_OUTPUT"
-          fi
+          {
+            echo '### FreshCart E2E runtime identity'
+            echo '- Backend: `${{ github.sha }}`'
+            echo '- Frontend: `${{ env.FRONTEND_SHA }}`'
+            printf -- '- .NET SDK: `%s`\n' "$(dotnet --version)"
+            printf -- '- Node: `%s`\n' "$(node --version)"
+            printf -- '- npm: `%s`\n' "$(npm --version)"
+            printf -- '- Backend dependency pins: `%s`\n' "$(sha256sum Directory.Packages.props global.json | sha256sum | cut -d' ' -f1)"
+            printf -- '- Frontend lock: `%s`\n' "$(sha256sum freshcart-web/package-lock.json | cut -d' ' -f1)"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
 
-      - name: Run tests
+      - name: Start ephemeral local stack
+        run: bash .github/scripts/freshcart-e2e-stack.sh start "$STACK_STATE" "$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE/freshcart-web"
+
+      - name: Wait for journey dependencies
+        run: bash .github/scripts/freshcart-e2e-stack.sh wait "$STACK_STATE" 600
+
+      - name: Report admin surface availability
+        run: echo 'Admin E2E unavailable — this repository set has no admin SPA. The reporting-dashboard spec remains in source and is excluded from this customer-storefront gate.' | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify customer test discovery
         working-directory: tests/e2e
         env:
-          PLAYWRIGHT_BASE_URL: ${{ steps.target.outputs.url }}
-        run: npx playwright test --project=${{ matrix.project }}
+          PLAYWRIGHT_BASE_URL: http://localhost:4200
+        run: |
+          mkdir -p test-results
+          npx playwright test specs/auth.spec.ts specs/customer-journey.spec.ts --project=${{ matrix.project }} --list | tee test-results/discovery.txt
+          grep -F 'Total: 2 tests in 2 files' test-results/discovery.txt
 
-      - name: Upload Playwright report
+      - name: Run customer journey gate
+        working-directory: tests/e2e
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:4200
+        run: npx playwright test specs/auth.spec.ts specs/customer-journey.spec.ts --project=${{ matrix.project }}
+
+      - name: Verify executed test count
+        working-directory: tests/e2e
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const xml = fs.readFileSync('test-results/junit.xml', 'utf8');
+          const suites = xml.match(/<testsuites\b[^>]*>/)?.[0] ?? '';
+          const value = name => Number(suites.match(new RegExp(`${name}="(\\d+)"`))?.[1] ?? -1);
+          const actual = { tests: value('tests'), failures: value('failures'), skipped: value('skipped') };
+          if (actual.tests !== 2 || actual.failures !== 0 || actual.skipped !== 0) {
+            throw new Error(`Expected 2 passing and 0 skipped customer tests; received ${JSON.stringify(actual)}`);
+          }
+          console.log('Verified 2 passing customer tests with 0 skipped.');
+          NODE
+
+      - name: Upload E2E evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-${{ matrix.project }}
-          path: tests/e2e/playwright-report
+          name: e2e-evidence-${{ matrix.project }}
+          path: |
+            tests/e2e/playwright-report
+            tests/e2e/test-results
+            ${{ env.STACK_STATE }}/*.log
           retention-days: 14
+          if-no-files-found: warn
+
+      - name: Clean up owned stack resources
+        if: always()
+        run: bash .github/scripts/freshcart-e2e-stack.sh cleanup "$STACK_STATE"

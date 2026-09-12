@@ -21,12 +21,17 @@ public sealed partial class CustomExceptionHandler(ILogger<CustomExceptionHandle
         ArgumentNullException.ThrowIfNull(httpContext);
         ArgumentNullException.ThrowIfNull(exception);
 
-        LogUnhandledException(
-            exception,
-            exception.GetType().FullName,
-            httpContext.Request.Method,
-            httpContext.Request.Path.ToString(),
-            exception.Message);
+        if (logger.IsEnabled(LogLevel.Error))
+        {
+            var exceptionType = exception.GetType().FullName;
+            var requestPath = httpContext.Request.Path.ToString();
+            LogUnhandledException(
+                exception,
+                exceptionType,
+                httpContext.Request.Method,
+                requestPath,
+                exception.Message);
+        }
 
         var problemDetails = BuildProblemDetails(httpContext, exception);
         httpContext.Response.StatusCode = problemDetails.Status ?? StatusCodes.Status500InternalServerError;
@@ -41,6 +46,7 @@ public sealed partial class CustomExceptionHandler(ILogger<CustomExceptionHandle
     [LoggerMessage(
         EventId = 1100,
         Level = LogLevel.Error,
+        SkipEnabledCheck = true,
         Message = "Unhandled exception {ExceptionType} on {RequestMethod} {RequestPath}: {ExceptionMessage}")]
     private partial void LogUnhandledException(
         Exception exception,

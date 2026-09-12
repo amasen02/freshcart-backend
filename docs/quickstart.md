@@ -1,13 +1,13 @@
 # Local Development Quickstart Guide
 
-This guide walks you through bootstrapping the **FreshCart** microservices backend on your local development machine using Docker Compose and the .NET CLI.
+This guide walks you through bootstrapping the **FreshCart** microservices backend with .NET Aspire. A Docker Compose alternative is included for developers who want to run the services manually.
 
 ---
 
 ## 1. Prerequisites
 
 Ensure you have the following installed on your workstation:
-- **.NET SDK** (9.0 or 10.0-preview) &mdash; [Download .NET](https://dotnet.microsoft.com/download)
+- **.NET SDK 10.0.100** (the version selected by `global.json`) &mdash; [Download .NET](https://dotnet.microsoft.com/download)
 - **Docker Desktop** (or Docker Engine with Compose v2) &mdash; [Get Docker](https://www.docker.com/products/docker-desktop)
 - **Git**
 
@@ -28,40 +28,30 @@ cd freshcart-backend
 
 ---
 
-## 3. Launch Backing Services (Infrastructure Stack)
+## 3. Run the Complete Stack with Aspire (Recommended)
 
-FreshCart relies on PostgreSQL, Redis, RabbitMQ, and OpenTelemetry collector for event-driven messaging, caching, and observability. Launch them via the provided Docker Compose stack:
+The AppHost creates the backing stores and broker, starts all backend services, and supplies their service-discovery and connection-string configuration. Do not start the Compose stack as well, because that duplicates the same infrastructure and can cause port conflicts.
+
+```bash
+dotnet run --project src/AspireAppHost/FreshCart.AppHost/FreshCart.AppHost.csproj --launch-profile http
+```
+
+The terminal prints the Aspire Dashboard URL. Open it to inspect service health, logs, metrics, and traces.
+
+## 4. Compose Alternative for Manual Service Runs
+
+Use Compose only when you intend to run and configure the .NET services yourself:
 
 ```bash
 docker compose -f deploy/docker/docker-compose.yaml up -d
-```
-
-### Checking Container Health
-Verify that all supporting databases and brokers are healthy:
-```bash
 docker compose -f deploy/docker/docker-compose.yaml ps
 ```
 
-Default ports mapped locally:
-| Service | Technology | Port | Credentials |
-| :--- | :--- | :--- | :--- |
-| **Identity & Catalog DB** | PostgreSQL | `5432` | `postgres` / `postgres` |
-| **Distributed Cache** | Redis | `6379` | None (local dev) |
-| **Event Bus** | RabbitMQ | `5672` (AMQP), `15672` (UI) | `guest` / `guest` |
-| **Metrics** | Prometheus | `9090` | N/A |
-| **Dashboards** | Grafana | `3000` | `admin` / `admin` |
-
----
-
-## 4. Run via .NET Aspire AppHost (Recommended)
-
-FreshCart is orchestrated using **.NET Aspire**. The `FreshCart.AppHost` automatically configures service discovery, connection strings, and resilience pipelines:
+Stop that alternative with:
 
 ```bash
-dotnet run --project src/FreshCart.AppHost/FreshCart.AppHost.csproj
+docker compose -f deploy/docker/docker-compose.yaml down -v
 ```
-
-Once started, the terminal will output the **Aspire Dashboard URL** (typically `https://localhost:17000`). Open it in your browser to inspect live metrics, structured logs, and distributed traces across all microservices.
 
 ---
 
@@ -78,9 +68,6 @@ dotnet test --logger "console;verbosity=normal"
 
 ---
 
-## 6. Stopping the Environment
+## 6. Stopping the Aspire Environment
 
-To tear down the Docker background containers:
-```bash
-docker compose -f deploy/docker/docker-compose.yaml down -v
-```
+Stop the AppHost process with `Ctrl+C`. Aspire owns the containers it started; the normal developer configuration keeps their data volumes for the next run.
