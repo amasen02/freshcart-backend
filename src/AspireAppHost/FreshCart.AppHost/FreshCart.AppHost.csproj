@@ -25,6 +25,7 @@
     <PackageReference Include="Aspire.Hosting.RabbitMQ" />
     <PackageReference Include="Aspire.Hosting.MongoDB" />
     <PackageReference Include="Aspire.Hosting.MySql" />
+    <PackageReference Include="AspNetCore.HealthChecks.MongoDb" />
   </ItemGroup>
 
   <ItemGroup>

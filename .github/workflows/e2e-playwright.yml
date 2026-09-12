@@ -23,7 +23,7 @@ permissions:
 
 env:
   FRONTEND_SHA: acab0f75cf2622566d1edf340ef626d739604958
-  STACK_STATE: ${{ github.workspace }}/.freshcart-e2e
+  STACK_STATE: ${{ github.workspace }}/freshcart-e2e-state
 
 jobs:
   e2e:

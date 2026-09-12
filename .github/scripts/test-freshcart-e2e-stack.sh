@@ -49,4 +49,63 @@ grep -Fx 'volume:new-volume' "$tmp_dir/removals"
 grep -Fx 'network:new-network' "$tmp_dir/removals"
 if grep -F 'existing-' "$tmp_dir/removals"; then echo "cleanup removed a pre-existing resource" >&2; exit 1; fi
 
-echo "freshcart-e2e-stack: 5 checks passed"
+mongo_source="$script_dir/../../src/AspireAppHost/FreshCart.AppHost/Program.cs"
+grep -F 'hello.setName === "rs0" && hello.isWritablePrimary === true' "$mongo_source" >/dev/null
+grep -F 'deadline=$((SECONDS + 600))' "$mongo_source" >/dev/null
+grep -F '&directConnection=true' "$mongo_source" >/dev/null
+grep -F 'ResourceAnnotationMutationBehavior.Replace' "$mongo_source" >/dev/null
+[[ $(grep -c 'RegisterMongoDatabaseHealthCheck' "$mongo_source") -eq 6 ]]
+
+fake_mongosh="$tmp_dir/mongosh"
+cat > "$fake_mongosh" <<'FAKE_MONGOSH'
+#!/usr/bin/env bash
+set -euo pipefail
+state_file=${FAKE_MONGO_STATE:?}
+mode=$(<"$state_file")
+case "$mode" in
+  temporary)
+    printf 'init-attempt\n' >> "${FAKE_MONGO_CALLS:?}"
+    if (( $(wc -l < "${FAKE_MONGO_CALLS:?}") >= 4 )); then printf 'final\n' > "$state_file"; fi
+    exit 1
+    ;;
+  final)
+    if grep -q 'db.hello' <<< "$*"; then exit 0; fi
+    printf 'init-attempt\n' >> "${FAKE_MONGO_CALLS:?}"
+    exit 0
+    ;;
+  timeout)
+    exit 1
+    ;;
+  *) exit 2 ;;
+esac
+FAKE_MONGOSH
+chmod +x "$fake_mongosh"
+
+run_replica_initializer() {
+  local timeout_seconds=$1
+  local deadline=$((SECONDS + timeout_seconds))
+  while (( SECONDS < deadline )); do
+    if "$fake_mongosh" --eval 'const hello = db.hello(); quit(hello.setName === "rs0" && hello.isWritablePrimary === true ? 0 : 1)' >/dev/null 2>&1; then
+      return 0
+    fi
+    "$fake_mongosh" --eval 'try { if (db.hello().setName === "rs0") rs.initiate({_id:"rs0"}); } catch (e) {}' >/dev/null 2>&1 || true
+    sleep 0.1
+  done
+  return 1
+}
+
+printf 'temporary\n' > "$tmp_dir/mongo-state"
+: > "$tmp_dir/mongo-calls"
+export FAKE_MONGO_STATE="$tmp_dir/mongo-state" FAKE_MONGO_CALLS="$tmp_dir/mongo-calls"
+run_replica_initializer 3
+grep -F 'final' "$tmp_dir/mongo-state" >/dev/null
+
+printf 'final\n' > "$tmp_dir/mongo-state"
+: > "$tmp_dir/mongo-calls"
+run_replica_initializer 3
+if [[ -s "$tmp_dir/mongo-calls" ]]; then echo "existing primary was reinitialized" >&2; exit 1; fi
+
+printf 'timeout\n' > "$tmp_dir/mongo-state"
+if run_replica_initializer 1; then echo "replica initializer ignored timeout" >&2; exit 1; fi
+
+echo "freshcart-e2e-stack: 11 checks passed"
