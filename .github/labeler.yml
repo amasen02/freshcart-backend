@@ -1,0 +1,87 @@
+# FreshCart PR Labeler Configuration
+# Automatically applies area and component labels based on modified file paths
+
+area/gateway:
+  - changed-files:
+      - any-glob-to-any-file: 'src/ApiGateways/**/*'
+
+area/basket:
+  - changed-files:
+      - any-glob-to-any-file: 'src/Services/Basket/**/*'
+
+area/catalog:
+  - changed-files:
+      - any-glob-to-any-file: 'src/Services/Catalog/**/*'
+
+area/customersupport:
+  - changed-files:
+      - any-glob-to-any-file: 'src/Services/CustomerSupport/**/*'
+
+area/delivery:
+  - changed-files:
+      - any-glob-to-any-file: 'src/Services/Delivery/**/*'
+
+area/identity:
+  - changed-files:
+      - any-glob-to-any-file: 'src/Services/Identity/**/*'
+
+area/inventory:
+  - changed-files:
+      - any-glob-to-any-file: 'src/Services/Inventory/**/*'
+
+area/notification:
+  - changed-files:
+      - any-glob-to-any-file: 'src/Services/Notification/**/*'
+
+area/ordering:
+  - changed-files:
+      - any-glob-to-any-file: 'src/Services/Ordering/**/*'
+
+area/payment:
+  - changed-files:
+      - any-glob-to-any-file: 'src/Services/Payment/**/*'
+
+area/pricing:
+  - changed-files:
+      - any-glob-to-any-file: 'src/Services/Pricing/**/*'
+
+area/reporting:
+  - changed-files:
+      - any-glob-to-any-file: 'src/Services/Reporting/**/*'
+
+area/reviews:
+  - changed-files:
+      - any-glob-to-any-file: 'src/Services/Reviews/**/*'
+
+area/apphost:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/FreshCart.AppHost/**/*'
+          - 'src/FreshCart.ServiceDefaults/**/*'
+
+area/deploy:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'deploy/**/*'
+          - 'gitops/**/*'
+
+area/infra:
+  - changed-files:
+      - any-glob-to-any-file: 'infra/**/*'
+
+area/tests:
+  - changed-files:
+      - any-glob-to-any-file: 'tests/**/*'
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'docs/**/*'
+          - '**/*.md'
+          - '**/*.html'
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/**/*'
+          - 'azure-pipelines/**/*'
