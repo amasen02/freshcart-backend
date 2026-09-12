@@ -21,6 +21,11 @@ export PLAYWRIGHT_BASE_URL=http://localhost:4200
 npm test
 ```
 
+The CI stack serves the storefront over HTTPS because the session cookie is `Secure` and WebKit
+rejects that cookie on plain HTTP localhost. CI sets `PLAYWRIGHT_BASE_URL=https://localhost:4200`
+and starts Angular with its ephemeral development certificate; Playwright already ignores that
+local certificate. Local HTTP remains the default for manually deployed storefronts.
+
 Open the HTML report:
 
 ```bash

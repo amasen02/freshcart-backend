@@ -30,7 +30,9 @@ start_stack() {
   snapshot_docker "$state_dir"
   (cd "$backend_dir" && exec setsid env FreshCart__Ephemeral=true dotnet run --project src/AspireAppHost/FreshCart.AppHost/FreshCart.AppHost.csproj --launch-profile http) > "$state_dir/apphost.log" 2>&1 &
   echo $! > "$state_dir/apphost.pid"
-  (cd "$frontend_dir" && exec setsid npm start -- --host 127.0.0.1 --port 4200) > "$state_dir/storefront.log" 2>&1 &
+  # WebKit rejects Secure cookies on plain HTTP localhost. Keep the production cookie policy
+  # intact and serve the CI storefront over the ephemeral dev certificate instead.
+  (cd "$frontend_dir" && exec setsid npm start -- --host 127.0.0.1 --port 4200 --ssl true) > "$state_dir/storefront.log" 2>&1 &
   echo $! > "$state_dir/storefront.pid"
 }
 
@@ -70,7 +72,7 @@ wait_for_stack() {
   wait_one notification http://localhost:5109/ready
   wait_one reporting http://localhost:5110/ready
   wait_one gateway https://localhost:7100/ready true
-  wait_one storefront http://localhost:4200
+  wait_one storefront https://localhost:4200 true
 }
 
 new_docker_ids() {

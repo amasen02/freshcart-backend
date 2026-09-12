@@ -34,6 +34,15 @@ export class CustomerJourneyPage {
     await this.expectAuthenticated();
   }
 
+  async signOut(): Promise<void> {
+    await this.openAccountMenu();
+    await this.page.getByRole('button', { name: /sign out/i }).click();
+
+    const accountMenu = this.page.getByTestId('account-menu');
+    await expect(accountMenu).toHaveAttribute('aria-expanded', 'false');
+    await expect(accountMenu).toContainText('Account');
+  }
+
   async addFirstProductToBasket(): Promise<string> {
     await this.page.getByRole('link', { name: /catalog/i }).first().click();
     const firstProductCard = this.page.getByTestId('product-card').first();
@@ -80,8 +89,13 @@ export class CustomerJourneyPage {
     await expect(this.page.getByTestId('notification-toast').first()).toBeVisible({ timeout: 10_000 });
   }
 
-  private async openAccountMenu(): Promise<void> {
-    await this.page.getByTestId('account-menu').click();
+  async openAccountMenu(): Promise<void> {
+    const accountMenu = this.page.getByTestId('account-menu');
+    if (await accountMenu.getAttribute('aria-expanded') !== 'true') {
+      await accountMenu.click();
+    }
+
+    await expect(accountMenu).toHaveAttribute('aria-expanded', 'true');
   }
 
   private async expectAuthenticated(): Promise<void> {
