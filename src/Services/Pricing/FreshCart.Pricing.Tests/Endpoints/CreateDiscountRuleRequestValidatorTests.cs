@@ -55,6 +55,14 @@ public sealed class CreateDiscountRuleRequestValidatorTests
     }
 
     [Fact]
+    public void NegativePercentageFails()
+    {
+        var result = _validator.TestValidate(MakeRequest() with { DiscountPercentage = -0.01m });
+
+        result.ShouldHaveValidationErrorFor(request => request.DiscountPercentage);
+    }
+
+    [Fact]
     public void PercentageAboveOneHundredFails()
     {
         var result = _validator.TestValidate(MakeRequest() with { DiscountPercentage = 100.01m });
