@@ -344,6 +344,7 @@ warning instead of failing every build):
 Open the **[`index.html`](index.html)** landing page for the animated architecture guide. The
 deeper references are:
 
+- [`docs/quickstart.md`](docs/quickstart.md) &mdash; Step-by-step local setup with Docker Compose & Aspire.
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) &mdash; C4 narrative + cross-cutting map.
 - [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) &mdash; naming, async, LINQ discipline.
 - [`docs/adr/`](docs/adr/) &mdash; architecture decision records.
@@ -389,6 +390,15 @@ This project is, and will remain, free and open source. As maintainer I commit t
   scan &mdash; on every change.
 
 ---
+
+
+---
+
+## Stargazers over time
+
+[![Star History Chart](https://api.star-history.com/svg?repos=amasen02/freshcart-backend&type=Date)](https://star-history.com/#amasen02/freshcart-backend&Date)
+
+⭐ **Found this useful? Please star the repository to support its development!**
 
 ## License
 
