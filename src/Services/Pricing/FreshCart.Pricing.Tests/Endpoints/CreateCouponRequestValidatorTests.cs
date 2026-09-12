@@ -55,6 +55,14 @@ public sealed class CreateCouponRequestValidatorTests
     }
 
     [Fact]
+    public void NegativeDiscountValueFails()
+    {
+        var result = _validator.TestValidate(MakeRequest() with { DiscountValue = -0.01m });
+
+        result.ShouldHaveValidationErrorFor(request => request.DiscountValue);
+    }
+
+    [Fact]
     public void PercentageDiscountAboveOneHundredFails()
     {
         var result = _validator.TestValidate(MakeRequest() with
