@@ -9,6 +9,10 @@
 // ---------------------------------------------------------------------------
 
 var distributedApplicationBuilder = DistributedApplication.CreateBuilder(args);
+var usePersistentBackingResources = !string.Equals(
+    distributedApplicationBuilder.Configuration["FreshCart:Ephemeral"],
+    "true",
+    StringComparison.OrdinalIgnoreCase);
 
 // Stable developer credentials for the persistent backing-service containers. Aspire mints a random
 // password per run by default, but WithDataVolume() + ContainerLifetime.Persistent reuse the container
@@ -27,9 +31,11 @@ var messageBrokerPassword = distributedApplicationBuilder.AddParameter("rabbitmq
 // --- Relational stores ------------------------------------------------------
 
 var sqlServer = distributedApplicationBuilder
-    .AddSqlServer("sqlserver", password: sqlServerPassword)
-    .WithDataVolume()
-    .WithLifetime(ContainerLifetime.Persistent);
+    .AddSqlServer("sqlserver", password: sqlServerPassword);
+if (usePersistentBackingResources)
+{
+    sqlServer.WithDataVolume().WithLifetime(ContainerLifetime.Persistent);
+}
 
 // Identity (EF MigrateAsync) and Ordering (EF EnsureCreatedAsync) create their own database on startup,
 // so they are left to self-provision. The two raw-Dapper databases below have no EF creator and their
@@ -45,9 +51,11 @@ var paymentReadDatabase = sqlServer.AddDatabase("paymentreaddb")
     .WithCreationScript("IF DB_ID(N'paymentreaddb') IS NULL CREATE DATABASE [paymentreaddb];");
 
 var postgres = distributedApplicationBuilder
-    .AddPostgres("postgres", password: postgresPassword)
-    .WithDataVolume()
-    .WithLifetime(ContainerLifetime.Persistent);
+    .AddPostgres("postgres", password: postgresPassword);
+if (usePersistentBackingResources)
+{
+    postgres.WithDataVolume().WithLifetime(ContainerLifetime.Persistent);
+}
 
 // Aspire's AddDatabase only registers a connection string; it does not CREATE DATABASE, and a Postgres
 // creation script would run against the not-yet-existing target database. Catalog and Basket therefore
@@ -56,9 +64,11 @@ var catalogDatabase = postgres.AddDatabase("catalogdb");
 var basketDatabase = postgres.AddDatabase("basketdb");
 
 var mysql = distributedApplicationBuilder
-    .AddMySql("mysql", password: mySqlPassword)
-    .WithDataVolume()
-    .WithLifetime(ContainerLifetime.Persistent);
+    .AddMySql("mysql", password: mySqlPassword);
+if (usePersistentBackingResources)
+{
+    mysql.WithDataVolume().WithLifetime(ContainerLifetime.Persistent);
+}
 
 // Aspire's AddDatabase registers the connection string but does not create the MySQL database; the
 // Reporting warehouse initializer connects straight to reportingdb, so it must exist first.
@@ -90,9 +100,11 @@ var mongo = distributedApplicationBuilder
         context.Args.Add("-c");
         context.Args.Add(MongoReplicaSetInitScript);
         return Task.CompletedTask;
-    })
-    .WithDataVolume()
-    .WithLifetime(ContainerLifetime.Persistent);
+    });
+if (usePersistentBackingResources)
+{
+    mongo.WithDataVolume().WithLifetime(ContainerLifetime.Persistent);
+}
 
 var deliveryDatabase = mongo.AddDatabase("deliverydb");
 var paymentEventStore = mongo.AddDatabase("paymentevents");
@@ -103,15 +115,19 @@ var notificationsDatabase = mongo.AddDatabase("notificationsdb");
 // --- Cache + broker ---------------------------------------------------------
 
 var distributedCache = distributedApplicationBuilder
-    .AddRedis("cache")
-    .WithDataVolume()
-    .WithLifetime(ContainerLifetime.Persistent);
+    .AddRedis("cache");
+if (usePersistentBackingResources)
+{
+    distributedCache.WithDataVolume().WithLifetime(ContainerLifetime.Persistent);
+}
 
 var rabbitMq = distributedApplicationBuilder
     .AddRabbitMQ("rabbitmq", userName: messageBrokerUserName, password: messageBrokerPassword)
-    .WithManagementPlugin()
-    .WithDataVolume()
-    .WithLifetime(ContainerLifetime.Persistent);
+    .WithManagementPlugin();
+if (usePersistentBackingResources)
+{
+    rabbitMq.WithDataVolume().WithLifetime(ContainerLifetime.Persistent);
+}
 
 // MassTransit reads MessageBroker:Host/UserName/Password and applies the explicit credentials over any
 // embedded in the URI, so every broker-bound service is given the same stable host + credentials here.

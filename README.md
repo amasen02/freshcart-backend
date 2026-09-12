@@ -37,15 +37,12 @@ to run in any other environment.
 # 0. Clone
 git clone https://github.com/amasen02/freshcart-backend.git && cd freshcart-backend
 
-# 1. Backing services (SQL Server, Postgres, MySQL, MongoDB, Redis, RabbitMQ, Seq, Grafana, Prometheus)
-docker compose -f deploy/docker/docker-compose.yaml up -d
+# 1. Whole .NET stack via Aspire — boots its backing stores, every microservice and the gateway
+dotnet run --project src/AspireAppHost/FreshCart.AppHost/FreshCart.AppHost.csproj --launch-profile http
 
-# 2. Whole .NET stack via Aspire — boots every microservice + the gateway + seeds demo accounts
-dotnet run --project src/AspireAppHost/FreshCart.AppHost
-
-# 3. Customer storefront (separate repo) — ng serve proxies /api and /hubs to the gateway on 7100
+# 2. Customer storefront (separate repo) — ng serve proxies /api and /hubs to the gateway on 7100
 git clone https://github.com/amasen02/freshcart-web.git
-cd freshcart-web && npm install && npm start
+cd freshcart-web && npm ci && npm start
 ```
 
 ### Open in the browser
@@ -245,7 +242,7 @@ Every item traces to an audit finding; the fixes and their verification are reco
 
 ## Infrastructure &amp; deployment
 
-- **Local.** Docker Compose + .NET Aspire AppHost.
+- **Local.** .NET Aspire AppHost (recommended), or Docker Compose for backing infrastructure when running services manually.
 - **Azure.** Bicep modules under [`infra/`](infra/) provision AKS, ACR, Azure SQL,
   Postgres Flexible Server, MySQL Flexible Server, Cosmos DB, Cache for Redis, Service Bus,
   Key Vault, App Configuration, Log Analytics, App Insights, Front Door + WAF, Storage,
@@ -344,7 +341,7 @@ warning instead of failing every build):
 Open the **[`index.html`](index.html)** landing page for the animated architecture guide. The
 deeper references are:
 
-- [`docs/quickstart.md`](docs/quickstart.md) &mdash; Step-by-step local setup with Docker Compose & Aspire.
+- [`docs/quickstart.md`](docs/quickstart.md) &mdash; Step-by-step local setup with Aspire or Docker Compose.
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) &mdash; C4 narrative + cross-cutting map.
 - [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) &mdash; naming, async, LINQ discipline.
 - [`docs/adr/`](docs/adr/) &mdash; architecture decision records.
