@@ -22,7 +22,7 @@ permissions:
   contents: read
 
 env:
-  FRONTEND_SHA: acab0f75cf2622566d1edf340ef626d739604958
+  FRONTEND_SHA: 40ed245bb6937db582bf2e9eb59e79c675614793
   STACK_STATE: ${{ github.workspace }}/freshcart-e2e-state
 
 jobs:
