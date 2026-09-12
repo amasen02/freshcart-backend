@@ -64,6 +64,34 @@ public sealed class CheckoutAddressValidatorTests
     }
 
     [Theory]
+    [InlineData("GB", "W1K 7TN")]
+    [InlineData("US", "00501-1234")]
+    [InlineData("IE", "D04 K7X4")]
+    [InlineData("DE", "10115")]
+    [InlineData("FR", "75001")]
+    [InlineData("AU", "2000")]
+    public void SupportedCountryPostalShapesPass(string countryCode, string postalCode)
+    {
+        var result = _validator.TestValidate(ValidAddress with { CountryCode = countryCode, PostalCode = postalCode });
+
+        result.ShouldNotHaveValidationErrorFor(address => address.PostalCode);
+    }
+
+    [Theory]
+    [InlineData("GB", "12345")]
+    [InlineData("US", "1234")]
+    [InlineData("IE", "D04- K7X4")]
+    [InlineData("DE", "1011")]
+    [InlineData("FR", "7500A")]
+    [InlineData("AU", "20000")]
+    public void MalformedSupportedCountryPostalShapesFail(string countryCode, string postalCode)
+    {
+        var result = _validator.TestValidate(ValidAddress with { CountryCode = countryCode, PostalCode = postalCode });
+
+        result.ShouldHaveValidationErrorFor(address => address.PostalCode);
+    }
+
+    [Theory]
     [InlineData("L")]
     [InlineData("LKA")]
     public void CountryCodeMustBeTwoLetters(string countryCode)

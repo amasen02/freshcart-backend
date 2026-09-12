@@ -1,4 +1,5 @@
 using FluentValidation;
+using FreshCart.BuildingBlocks.Addressing;
 using FreshCart.BuildingBlocks.Messaging.IntegrationEvents;
 
 namespace FreshCart.Basket.Api.Features.ShoppingBaskets.Checkout;
@@ -25,7 +26,9 @@ public sealed class CheckoutAddressValidator : AbstractValidator<CheckoutAddress
 
         RuleFor(address => address.PostalCode)
             .NotEmpty()
-            .MaximumLength(MaxPostalCodeLength);
+            .MaximumLength(MaxPostalCodeLength)
+            .Must((address, postalCode) => PostalCodeFormatPolicy.IsValid(address.CountryCode, postalCode))
+            .WithMessage("Postal code format is invalid for the selected country.");
 
         RuleFor(address => address.CountryCode)
             .NotEmpty()

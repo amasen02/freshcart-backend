@@ -69,6 +69,20 @@ public sealed class DeliveryTests
         failure.Should().Throw<DomainException>().WithMessage("*cannot be failed*");
     }
 
+    [Theory]
+    [InlineData("GB", "12345")]
+    [InlineData("US", "1234")]
+    [InlineData("IE", "D04- K7X4")]
+    [InlineData("DE", "1011")]
+    [InlineData("FR", "7500A")]
+    [InlineData("AU", "20000")]
+    public void ADeliveryAddressRejectsMalformedSupportedCountryPostalShapes(string countryCode, string postalCode)
+    {
+        var creation = () => new DeliveryAddress("12 Market Street", null, "London", postalCode, countryCode);
+
+        creation.Should().Throw<ArgumentException>().WithParameterName(nameof(postalCode));
+    }
+
     private static DeliveryAggregate CreateScheduledDelivery() => DeliveryAggregate.Schedule(
         Guid.NewGuid(),
         Guid.NewGuid(),
