@@ -78,6 +78,37 @@ new_docker_ids() {
   case "$kind" in containers) docker ps -aq ;; volumes) docker volume ls -q ;; networks) docker network ls -q ;; esac | sort -u | comm -13 "$before_file" -
 }
 
+collect_diagnostics() {
+  local state_dir=$1 diagnostics_dir=$1/diagnostics
+  mkdir -p "$diagnostics_dir"
+  for snapshot in containers.before volumes.before networks.before; do
+    if [[ ! -f "$state_dir/$snapshot" ]]; then
+      echo "Docker ownership snapshot unavailable; no Docker diagnostics collected." > "$diagnostics_dir/README.txt"
+      return 0
+    fi
+  done
+
+  : > "$diagnostics_dir/containers.txt"
+  mapfile -t containers < <(new_docker_ids containers "$state_dir/containers.before")
+  for container in "${containers[@]}"; do
+    docker inspect --format '{{.Name}} status={{.State.Status}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container" >> "$diagnostics_dir/containers.txt" 2>&1 || true
+    docker logs --tail 80 "$container" > "$diagnostics_dir/container-$container.log" 2>&1 || true
+  done
+
+  : > "$diagnostics_dir/volumes.txt"
+  mapfile -t volumes < <(new_docker_ids volumes "$state_dir/volumes.before")
+  for volume in "${volumes[@]}"; do
+    docker volume inspect --format '{{.Name}} driver={{.Driver}}' "$volume" >> "$diagnostics_dir/volumes.txt" 2>&1 || true
+  done
+
+  : > "$diagnostics_dir/networks.txt"
+  mapfile -t networks < <(new_docker_ids networks "$state_dir/networks.before")
+  for network in "${networks[@]}"; do
+    docker network inspect --format '{{.Name}} driver={{.Driver}}' "$network" >> "$diagnostics_dir/networks.txt" 2>&1 || true
+  done
+  echo "Collected bounded diagnostics for ${#containers[@]} containers, ${#volumes[@]} volumes, and ${#networks[@]} networks." > "$diagnostics_dir/README.txt"
+}
+
 cleanup() {
   local state_dir=$1 pid
   [[ "${CI:-}" == true ]] || { echo "Cleanup is restricted to an isolated CI Docker host" >&2; return 1; }
@@ -107,5 +138,5 @@ cleanup() {
 
 if [[ "${FRESHCART_STACK_LIB_ONLY:-}" != 1 ]]; then
   command_name=${1:-}; shift || true
-  case "$command_name" in preflight) preflight "$@" ;; start) start_stack "$@" ;; wait) wait_for_stack "$@" ;; cleanup) cleanup "$@" ;; *) echo "Usage: $0 {preflight|start|wait|cleanup}" >&2; exit 2 ;; esac
+  case "$command_name" in preflight) preflight "$@" ;; start) start_stack "$@" ;; wait) wait_for_stack "$@" ;; diagnostics) collect_diagnostics "$@" ;; cleanup) cleanup "$@" ;; *) echo "Usage: $0 {preflight|start|wait|diagnostics|cleanup}" >&2; exit 2 ;; esac
 fi

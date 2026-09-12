@@ -124,6 +124,10 @@ jobs:
           console.log('Verified 2 passing customer tests with 0 skipped.');
           NODE
 
+      - name: Collect bounded owned Docker diagnostics
+        if: always()
+        run: bash .github/scripts/freshcart-e2e-stack.sh diagnostics "$STACK_STATE"
+
       - name: Upload E2E evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -133,6 +137,7 @@ jobs:
             tests/e2e/playwright-report
             tests/e2e/test-results
             ${{ env.STACK_STATE }}/*.log
+            ${{ env.STACK_STATE }}/diagnostics
           retention-days: 14
           if-no-files-found: warn
 

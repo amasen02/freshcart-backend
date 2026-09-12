@@ -85,16 +85,19 @@ var reportingWarehouse = mysql.AddDatabase("reportingdb")
 // collections in one MongoDB transaction, which a standalone mongod rejects. Aspire's AddMongoDB starts a
 // standalone (with auth) and has no replica-set switch, so the container is run as a single-node replica
 // set: a wrapper entrypoint generates the keyfile internal auth requires, hands off to the stock entrypoint
-// (which still creates the admin user) with --replSet + --keyFile, and a backgrounded task runs rs.initiate
-// once the final authenticated mongod answers — the retry survives the official image's temporary
-// standalone initdb process, then becomes idempotent because an existing writable primary is accepted.
+// (which still creates the admin user) with --replSet + --keyFile, and a backgrounded task runs the
+// packaged initializer once the final authenticated mongod answers. The initializer survives the
+// official image's temporary standalone initdb process, then becomes idempotent because an existing
+// writable primary is accepted.
 // The single member advertises the container-internal
 // host, so service processes connect with directConnection=true (see ReferenceMongoDatabase) and use the
-// seed they are given instead of resolving that host. The script is one line so the C# source's line
-// endings can never put a stray carriage return into the shell command. The prior initializer was verified
-// against the mongo:7 image; this retry remains runtime-gated by the hosted E2E run.
-const string MongoReplicaSetInitScript =
-    """KEYFILE=/data/configdb/replica-set.key; if [ ! -f "$KEYFILE" ]; then openssl rand -base64 756 > "$KEYFILE"; chmod 400 "$KEYFILE"; chown mongodb:mongodb "$KEYFILE"; fi; ( deadline=$((SECONDS + 600)); while (( SECONDS < deadline )); do if mongosh --quiet -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval 'const hello = db.hello(); quit(hello.setName === "rs0" && hello.isWritablePrimary === true ? 0 : 1)' >/dev/null 2>&1; then break; fi; mongosh --quiet -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval 'try { if (db.hello().setName === "rs0") rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]}); } catch (e) {}' >/dev/null 2>&1 || true; sleep 1; done; if (( SECONDS >= deadline )); then echo "Mongo replica-set primary was not ready before 600s" >&2; exit 1; fi ) & exec docker-entrypoint.sh mongod --replSet rs0 --keyFile "$KEYFILE" --bind_ip_all""";
+// seed they are given instead of resolving that host. Normalize the packaged file because the host may
+// be checked out with either repository line-ending setting.
+var mongoReplicaSetInitScript = (await File.ReadAllTextAsync(
+        Path.Combine(AppContext.BaseDirectory, "mongo-replica-set-init.sh"))
+    .ConfigureAwait(false))
+    .Replace("\r\n", "\n", StringComparison.Ordinal)
+    .Replace('\r', '\n');
 
 var mongo = distributedApplicationBuilder
     .AddMongoDB("mongodb")
@@ -103,7 +106,7 @@ var mongo = distributedApplicationBuilder
     {
         context.Args.Clear();
         context.Args.Add("-c");
-        context.Args.Add(MongoReplicaSetInitScript);
+        context.Args.Add(mongoReplicaSetInitScript);
         return Task.CompletedTask;
     });
 if (usePersistentBackingResources)

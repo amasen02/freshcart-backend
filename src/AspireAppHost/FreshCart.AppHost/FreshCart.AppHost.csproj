@@ -25,7 +25,10 @@
     <PackageReference Include="Aspire.Hosting.RabbitMQ" />
     <PackageReference Include="Aspire.Hosting.MongoDB" />
     <PackageReference Include="Aspire.Hosting.MySql" />
-    <PackageReference Include="AspNetCore.HealthChecks.MongoDb" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="mongo-replica-set-init.sh" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
