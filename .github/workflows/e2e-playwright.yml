@@ -91,7 +91,7 @@ jobs:
         run: bash .github/scripts/freshcart-e2e-stack.sh wait "$STACK_STATE" 600
 
       - name: Report admin surface availability
-        run: echo 'Admin E2E unavailable — this repository set has no admin SPA. The reporting-dashboard spec remains in source and is excluded from this customer-storefront gate.' | tee -a "$GITHUB_STEP_SUMMARY"
+        run: echo 'Dedicated reporting-dashboard E2E is outside this customer-storefront gate; the embedded /dashboard and /support/console routes remain in the storefront.' | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Verify customer test discovery
         working-directory: tests/e2e
@@ -123,6 +123,57 @@ jobs:
           }
           console.log('Verified 2 passing customer tests with 0 skipped.');
           NODE
+
+      - name: Capture Customer Support OpenAPI evidence
+        if: matrix.project == 'chromium'
+        working-directory: tests/e2e
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence_root="test-results/support-docs"
+          base_url="https://localhost:7111"
+          mkdir -p "$evidence_root"
+
+          capture() {
+            local relative_path="$1"
+            local body_path="$evidence_root/$relative_path"
+            local header_path="${body_path}.headers"
+            local response_code
+
+            mkdir -p "$(dirname "$body_path")"
+            if ! response_code="$(curl -kfsS \
+              --connect-timeout 10 \
+              --max-time 30 \
+              --dump-header "$header_path" \
+              --output "$body_path" \
+              --write-out '%{http_code}' \
+              "$base_url/$relative_path")"; then
+              echo "Customer Support evidence request failed: /$relative_path" >&2
+              return 1
+            fi
+
+            if [[ "$response_code" != 2* ]]; then
+              echo "Customer Support evidence request returned HTTP $response_code: /$relative_path" >&2
+              return 1
+            fi
+          }
+
+          capture swagger/index.html
+          capture swagger/swagger-ui.css
+          capture swagger/swagger-ui-bundle.js
+          capture swagger/swagger-ui-standalone-preset.js
+          capture swagger/index.js
+          capture swagger/favicon-16x16.png
+          capture swagger/favicon-32x32.png
+          capture openapi/v1.json
+
+          {
+            printf 'backend_sha=%s\n' '${{ github.sha }}'
+            printf 'frontend_sha=%s\n' '${{ env.FRONTEND_SHA }}'
+            printf 'run_id=%s\n' '${{ github.run_id }}'
+            printf 'captured_at_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            printf 'base_url=%s\n' "$base_url"
+          } > "$evidence_root/capture-metadata.txt"
 
       - name: Collect bounded owned Docker diagnostics
         if: always()
