@@ -295,7 +295,7 @@ public sealed class SupportEndpointsTests(SupportApiFactory factory) : IClassFix
     }
 
     private const string StrictApiCsp = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
-    private const string SwaggerCsp = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
+    private const string SwaggerCsp = "default-src 'none'; script-src 'self'; style-src 'self' 'sha256-RL3ie0nH+Lzz2YNqQN83mnU0J1ot4QL7b99vMdIX99w='; img-src 'self' data:; connect-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
 
     private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string uri, Guid userId, string role)
     {

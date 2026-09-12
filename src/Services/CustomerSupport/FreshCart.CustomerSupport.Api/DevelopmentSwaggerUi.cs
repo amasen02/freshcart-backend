@@ -5,12 +5,15 @@ namespace FreshCart.CustomerSupport.Api;
 
 /// <summary>
 /// Development-only Swagger UI wiring. The document remains the ASP.NET Core OpenAPI document, while
-/// this UI package supplies only static browser assets and a self-hosted initializer.
+/// this UI package supplies only static browser assets and a self-hosted initializer. Swashbuckle
+/// 10.2.3's bundled logo SVG emits one version-pinned inline style block, whose SHA-256 is allowlisted
+/// below using the CSP style-src hash syntax documented at https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/style-src.
 /// </summary>
 internal static class DevelopmentSwaggerUi
 {
+    // Keep this hash synchronized with the version-pinned Swashbuckle 10.2.3 logo SVG style.
     private const string SwaggerCsp =
-        "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
+        "default-src 'none'; script-src 'self'; style-src 'self' 'sha256-RL3ie0nH+Lzz2YNqQN83mnU0J1ot4QL7b99vMdIX99w='; img-src 'self' data:; "
         + "connect-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
 
     private const string IndexHtml = """
